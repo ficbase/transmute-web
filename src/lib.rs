@@ -507,7 +507,7 @@ fn collapse_newlines(s: &str) -> String {
             out.push(c);
         }
     }
-    out.trim().to_string()
+    out.trim_end().to_string()
 }
 
 // ── Text → HTML helpers ──────────────────────────────────────────────
