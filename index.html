@@ -176,22 +176,22 @@
     .meta-header .arrow { transition: transform 0.2s; }
     .meta-header.open .arrow { transform: rotate(180deg); }
     .meta-body {
-      padding: 0 14px 14px;
+      padding: 0 14px 10px;
       display: none;
     }
     .meta-body.show { display: block; }
-    .meta-row {
-      margin-top: 10px;
-    }
+    .meta-grid.show { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
+    .meta-row { margin-top: 0; }
+    .meta-row.full { grid-column: 1 / -1; }
     .meta-row label {
       display: block;
-      font-size: 12px;
+      font-size: 11px;
       color: #777;
-      margin-bottom: 4px;
+      margin-bottom: 3px;
     }
-    .meta-row input, .meta-row textarea {
+    .meta-row input, .meta-row textarea, .meta-row select {
       width: 100%;
-      padding: 8px 10px;
+      padding: 6px 8px;
       background: #16161c;
       border: 1px solid #2a2a35;
       border-radius: 6px;
@@ -200,11 +200,13 @@
       font-family: inherit;
       outline: none;
       transition: border-color 0.2s;
+      box-sizing: border-box;
     }
-    .meta-row input:focus, .meta-row textarea:focus {
+    .meta-row input:focus, .meta-row textarea:focus, .meta-row select:focus {
       border-color: #6c5ce7;
     }
-    .meta-row textarea { resize: vertical; min-height: 44px; }
+    .meta-row textarea { resize: vertical; min-height: 40px; }
+    .meta-row select { cursor: pointer; }
 
     footer {
       margin-top: 40px;
@@ -257,18 +259,8 @@
       <!-- Metadata editor -->
       <div class="meta-section" id="metaSection" style="display:none">
         <div class="meta-header" id="metaToggle">📋 元数据设置 <span class="arrow">▾</span></div>
-        <div class="meta-body" id="metaBody">
-          <div class="meta-row" style="display:flex;align-items:center;gap:8px">
-            <label style="margin:0">编码</label>
-            <select id="metaEncoding" style="width:auto;flex:0">
-              <option value="">自动检测</option>
-              <option value="utf-8">UTF-8</option>
-              <option value="gbk">GBK</option>
-              <option value="utf-16le">UTF-16 LE</option>
-              <option value="utf-16be">UTF-16 BE</option>
-            </select>
-          </div>
-          <div class="meta-row">
+        <div class="meta-body meta-grid" id="metaBody">
+          <div class="meta-row full">
             <label>书名</label>
             <input type="text" id="metaTitle" placeholder="自动检测">
           </div>
@@ -278,31 +270,41 @@
           </div>
           <div class="meta-row">
             <label>语言</label>
-            <input type="text" id="metaLang" placeholder="zh" value="zh" style="width:80px">
-          </div>
-          <div class="meta-row">
-            <label>简介</label>
-            <textarea id="metaDesc" rows="2" placeholder="内容简介"></textarea>
+            <input type="text" id="metaLang" placeholder="zh" value="zh">
           </div>
           <div class="meta-row">
             <label>出版社</label>
             <input type="text" id="metaPublisher" placeholder="出版社">
           </div>
           <div class="meta-row">
-            <label>标识符</label>
-            <input type="text" id="metaIdentifier" placeholder="ISBN 或自定义 ID">
-          </div>
-          <div class="meta-row">
             <label>日期</label>
             <input type="text" id="metaDate" placeholder="2024-01-01">
+          </div>
+          <div class="meta-row">
+            <label>标识符</label>
+            <input type="text" id="metaIdentifier" placeholder="ISBN">
           </div>
           <div class="meta-row">
             <label>版权</label>
             <input type="text" id="metaRights" placeholder="版权声明">
           </div>
+          <div class="meta-row full">
+            <label>简介</label>
+            <textarea id="metaDesc" rows="2" placeholder="内容简介"></textarea>
+          </div>
           <div class="meta-row">
             <label>标签</label>
             <input type="text" id="metaSubjects" placeholder="标签1, 标签2">
+          </div>
+          <div class="meta-row">
+            <label>编码</label>
+            <select id="metaEncoding">
+              <option value="">自动</option>
+              <option value="utf-8">UTF-8</option>
+              <option value="gbk">GBK</option>
+              <option value="utf-16le">UTF-16LE</option>
+              <option value="utf-16be">UTF-16BE</option>
+            </select>
           </div>
         </div>
       </div>
