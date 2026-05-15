@@ -4,6 +4,7 @@
 
 use std::collections::HashMap;
 use std::io::{self, Read, Write};
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 use zip::read::ZipArchive;
 use zip::write::SimpleFileOptions;
@@ -53,7 +54,14 @@ const CONTAINER_XML: &str = "\
 
 // ── WASM exports ─────────────────────────────────────────────────────
 
-#[wasm_bindgen]
+/// Initialize panic hook for better error messages in browser console.
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+pub fn init_panic_hook() {
+    #[cfg(target_arch = "wasm32")]
+    console_error_panic_hook::set_once();
+}
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub fn txt_to_epub(
     txt: &str,
     cover_data: Option<Vec<u8>>,
@@ -82,13 +90,18 @@ pub fn txt_to_epub(
     };
 
     let mut buf = io::Cursor::new(Vec::new());
-    if write_epub(&book, &mut buf).is_err() {
-        return Vec::new();
+    match write_epub(&book, &mut buf) {
+        Ok(()) => buf.into_inner(),
+        Err(e) => {
+            #[cfg(target_arch = "wasm32")]
+            wasm_bindgen::throw_str(&format!("EPUB generation failed: {e}"));
+            #[cfg(not(target_arch = "wasm32"))]
+            panic!("EPUB generation failed: {e}");
+        }
     }
-    buf.into_inner()
 }
 
-#[wasm_bindgen]
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub fn epub_to_txt(epub_data: &[u8]) -> String {
     let cursor = io::Cursor::new(epub_data.to_vec());
     match parse_epub(cursor) {
@@ -623,6 +636,17 @@ enum Error {
 
 impl From<io::Error> for Error { fn from(e: io::Error) -> Self { Error::Io(e) } }
 impl From<zip::result::ZipError> for Error { fn from(e: zip::result::ZipError) -> Self { Error::Zip(e) } }
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::Io(e) => write!(f, "I/O error: {}", e),
+            Error::Zip(e) => write!(f, "ZIP error: {}", e),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
 
 // ── Chapter detection (from transmute CLI) ───────────────────────────
 
