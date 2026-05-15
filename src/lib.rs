@@ -118,6 +118,18 @@ pub fn set_timestamp(secs: u64) {
     let _ = secs;
 }
 
+/// Auto-detect book title from txt content.
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+pub fn detect_title(txt: &str) -> String {
+    extract_title(txt).unwrap_or_default()
+}
+
+/// Auto-detect book author from txt content.
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+pub fn detect_author(txt: &str) -> String {
+    extract_author(txt)
+}
+
 /// Initialize panic hook for better error messages in browser console.
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub fn init_panic_hook() {
