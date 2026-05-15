@@ -54,6 +54,40 @@ const CONTAINER_XML: &str = "\
 
 // ── WASM exports ─────────────────────────────────────────────────────
 
+/// Test: create a minimal 1-chapter EPUB to verify WASM infrastructure.
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+pub fn wasm_test() -> Vec<u8> {
+    let book = Book {
+        metadata: Metadata {
+            title: "Test".into(),
+            author: "Author".into(),
+            language: "en".into(),
+            ..Default::default()
+        },
+        chapters: vec![Chapter {
+            title: "Chapter 1".into(),
+            body: "Hello, world!".into(),
+        }],
+        cover: None,
+    };
+    let mut buf = io::Cursor::new(Vec::new());
+    match write_epub(&book, &mut buf) {
+        Ok(()) => buf.into_inner(),
+        Err(e) => {
+            #[cfg(target_arch = "wasm32")]
+            wasm_bindgen::throw_str(&format!("wasm_test failed: {e}"));
+            #[cfg(not(target_arch = "wasm32"))]
+            panic!("wasm_test failed: {e}");
+        }
+    }
+}
+
+/// Return version string to verify correct WASM loaded.
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+pub fn version() -> String {
+    env!("CARGO_PKG_VERSION").to_string()
+}
+
 /// Initialize panic hook for better error messages in browser console.
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub fn init_panic_hook() {
@@ -173,7 +207,7 @@ fn write_epub<W: Write + io::Seek>(book: &Book, writer: W) -> Result<(), Error> 
     zip.start_file("mimetype", store_opts)?;
     zip.write_all(MIMETYPE.as_bytes())?;
 
-    let deflate_opts = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+    let deflate_opts = store_opts; // FIXME: use Stored for now to test WASM compat
     zip.start_file("META-INF/container.xml", deflate_opts)?;
     zip.write_all(CONTAINER_XML.as_bytes())?;
 
