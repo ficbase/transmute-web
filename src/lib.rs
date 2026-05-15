@@ -456,7 +456,7 @@ fn parse_xhtml(xhtml: &str) -> (String, String) {
 }
 
 fn html_to_text(html: &str) -> String {
-    let squashed = html.replace('\n', " ");
+    let squashed = html.replace('\n', "");
     let mut out = String::with_capacity(squashed.len());
     let mut skip = 0u32;
     let mut ring = ['\0'; 5];
