@@ -438,16 +438,23 @@ fn parse_xhtml(xhtml: &str) -> (String, String) {
             })
     }).unwrap_or_default();
 
-    // Remove <h1>...</h1> and <title>...</title> from body to avoid title duplication
+    // Remove <h1>...</h1>, <head>..., <body> from body
     let mut body_src = xhtml.to_string();
-    if let Some(start) = body_src.find("<title>") {
-        if let Some(end) = body_src.find("</title>") {
-            body_src.replace_range(start..end + 8, "");
+    if let Some(start) = body_src.find("<head>") {
+        if let Some(end) = body_src.find("</head>") {
+            body_src.replace_range(start..end + 7, "");
         }
     }
     if let Some(start) = body_src.find("<h1>") {
         if let Some(end) = body_src.find("</h1>") {
             body_src.replace_range(start..end + 5, "");
+        }
+    }
+    if let Some(start) = body_src.find("<body>") {
+        body_src.replace_range(..start + 6, "");
+    } else if let Some(start) = body_src.find("<body ") {
+        if let Some(end) = body_src[start..].find('>') {
+            body_src.replace_range(..start + end + 1, "");
         }
     }
     body_src = body_src.trim_start().to_string();
