@@ -207,7 +207,7 @@ fn write_epub<W: Write + io::Seek>(book: &Book, writer: W) -> Result<(), Error> 
     zip.start_file("mimetype", store_opts)?;
     zip.write_all(MIMETYPE.as_bytes())?;
 
-    let deflate_opts = store_opts; // FIXME: use Stored for now to test WASM compat
+    let deflate_opts = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
     zip.start_file("META-INF/container.xml", deflate_opts)?;
     zip.write_all(CONTAINER_XML.as_bytes())?;
 
@@ -592,11 +592,19 @@ fn generate_cover_svg(title: &str, author: &str) -> String {
 // ── ISO 8601 timestamp ───────────────────────────────────────────────
 
 fn iso8601_now() -> String {
-    use std::time::SystemTime;
-    let dur = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_default();
-    let secs = dur.as_secs();
+    #[cfg(target_arch = "wasm32")]
+    let secs: u64 = {
+        let ms = js_sys::Date::new_0().get_time() as u64;
+        ms / 1000
+    };
+    #[cfg(not(target_arch = "wasm32"))]
+    let secs: u64 = {
+        use std::time::SystemTime;
+        SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
+    };
     let days = secs / 86400;
     let time = secs % 86400;
     let h = time / 3600;
@@ -647,11 +655,16 @@ const HEX: &[u8; 16] = b"0123456789abcdef";
 struct Lcg { state: u64 }
 impl Lcg {
     fn new() -> Self {
-        use std::time::{SystemTime, UNIX_EPOCH};
-        let seed = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_nanos() as u64)
-            .unwrap_or(42);
+        #[cfg(target_arch = "wasm32")]
+        let seed = (js_sys::Math::random() * u64::MAX as f64) as u64;
+        #[cfg(not(target_arch = "wasm32"))]
+        let seed = {
+            use std::time::{SystemTime, UNIX_EPOCH};
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|d| d.as_nanos() as u64)
+                .unwrap_or(42)
+        };
         Self { state: seed ^ 0xDEADBEEFCAFE0000 }
     }
     fn next(&mut self) -> u8 {
