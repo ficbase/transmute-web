@@ -472,9 +472,13 @@ fn html_to_text(html: &str) -> String {
             skip -= 1;
             let i = ri.wrapping_sub(1) % 5;
             let prev4 = |n: usize| ring[(i.wrapping_sub(n)) % 5];
-            let is_br = prev4(1) == 'r' && prev4(2) == 'b'
-                && (prev4(3) == '<' || (prev4(3) == '/' && prev4(4) == '<')
-                    || (prev4(3) == ' ' && prev4(4) == '/'));
+            let is_br =
+                // <br>
+                (prev4(1) == 'r' && prev4(2) == 'b' && prev4(3) == '<')
+                // <br/>
+                || (prev4(1) == '/' && prev4(2) == 'r' && prev4(3) == 'b' && prev4(4) == '<')
+                // <br />
+                || (prev4(1) == '/' && prev4(2) == ' ' && prev4(3) == 'r' && prev4(4) == 'b');
             if is_br { out.push('\n'); }
             if prev4(1) == 'p' && prev4(2) == '/' && prev4(3) == '<' {
                 out.push('\n'); out.push('\n');
