@@ -220,8 +220,8 @@ pub fn epub_to_txt(epub_data: &[u8]) -> String {
             txt.push('\n');
 
             for ch in &book.chapters {
-                txt.push_str(&format!("{}\n\n", ch.title));
-                txt.push_str(ch.body.trim());
+                txt.push_str(&format!("{}\n", ch.title));
+                txt.push_str(ch.body.trim_end());
                 txt.push_str("\n\n");
             }
             txt
@@ -492,7 +492,7 @@ fn html_to_text(html: &str) -> String {
         result.push(c);
         prev = c;
     }
-    collapse_newlines(result.trim())
+    collapse_newlines(result.trim_end())
 }
 
 fn collapse_newlines(s: &str) -> String {
