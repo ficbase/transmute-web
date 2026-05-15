@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transmute · txt ↔ epub 转换器</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f0f12;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px;
+    }
+    .container { max-width: 560px; width: 100%; }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    header h1 {
+      font-size: 32px;
+      font-weight: 700;
+      color: #f0f0f0;
+      letter-spacing: -0.5px;
+    }
+    header p {
+      font-size: 14px;
+      color: #888;
+      margin-top: 6px;
+    }
+
+    .card {
+      background: #1a1a20;
+      border: 1px solid #2a2a35;
+      border-radius: 12px;
+      padding: 28px;
+      margin-bottom: 16px;
+    }
+
+    .dropzone {
+      border: 2px dashed #3a3a48;
+      border-radius: 10px;
+      padding: 48px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .dropzone:hover, .dropzone.drag {
+      border-color: #6c5ce7;
+      background: rgba(108, 92, 231, 0.06);
+    }
+    .dropzone .icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+      opacity: 0.7;
+    }
+    .dropzone .label {
+      font-size: 15px;
+      color: #b0b0c0;
+    }
+    .dropzone .hint {
+      font-size: 12px;
+      color: #666;
+      margin-top: 6px;
+    }
+    .dropzone input { display: none; }
+
+    .file-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: #22222c;
+      border-radius: 8px;
+      margin-top: 12px;
+    }
+    .file-row .name {
+      flex: 1;
+      font-size: 13px;
+      color: #ccc;
+      word-break: break-all;
+    }
+    .file-row .badge {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: #6c5ce7;
+      color: #fff;
+      white-space: nowrap;
+    }
+    .file-row .remove {
+      background: none;
+      border: none;
+      color: #888;
+      cursor: pointer;
+      font-size: 16px;
+      padding: 0 4px;
+    }
+    .file-row .remove:hover { color: #ff6b6b; }
+
+    .cover-row {
+      margin-top: 12px;
+    }
+    .cover-row label {
+      font-size: 13px;
+      color: #999;
+      margin-bottom: 6px;
+      display: block;
+    }
+    .cover-row .dropzone {
+      padding: 20px;
+    }
+    .cover-row .dropzone .icon { font-size: 28px; }
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      margin-top: 16px;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+    }
+    .btn-primary {
+      background: #6c5ce7;
+      color: #fff;
+    }
+    .btn-primary:hover { background: #5b4bd5; }
+    .btn-primary:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .btn-download {
+      background: #22c55e;
+      color: #fff;
+      margin-top: 12px;
+      display: none;
+    }
+    .btn-download:hover { background: #1ea84e; }
+    .btn-download.show { display: block; }
+
+    .status {
+      text-align: center;
+      margin-top: 14px;
+      font-size: 13px;
+      color: #888;
+      min-height: 20px;
+    }
+    .status.error { color: #ff6b6b; }
+    .status.success { color: #22c55e; }
+
+    footer {
+      margin-top: 40px;
+      font-size: 12px;
+      color: #555;
+      text-align: center;
+    }
+    footer a { color: #6c5ce7; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Transmute</h1>
+      <p>txt ↔ epub 在线转换器 · EPUB 3.3 · 智能章节检测</p>
+    </header>
+
+    <div class="card">
+      <!-- Main file upload -->
+      <div class="dropzone" id="dropzone">
+        <div class="icon">📄</div>
+        <div class="label">拖放文件到此处，或点击选择</div>
+        <div class="hint">支持 .txt / .epub 格式</div>
+        <input type="file" id="fileInput" accept=".txt,.epub">
+      </div>
+
+      <!-- Selected file row -->
+      <div class="file-row" id="fileRow" style="display:none">
+        <span class="name" id="fileName"></span>
+        <span class="badge" id="fileFormat"></span>
+        <button class="remove" id="fileRemove">&times;</button>
+      </div>
+
+      <!-- Cover upload (only for txt→epub) -->
+      <div class="cover-row" id="coverRow" style="display:none">
+        <label>封面图片（可选）</label>
+        <div class="dropzone" id="coverZone">
+          <div class="icon">🖼</div>
+          <div class="label">点击上传封面图片</div>
+          <input type="file" id="coverInput" accept="image/*">
+        </div>
+        <div class="file-row" id="coverFileRow" style="display:none">
+          <span class="name" id="coverFileName"></span>
+          <span class="badge">封面</span>
+          <button class="remove" id="coverRemove">&times;</button>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="convertBtn" disabled>选择文件开始转换</button>
+      <button class="btn btn-download" id="downloadBtn">⬇ 下载转换结果</button>
+      <div class="status" id="status"></div>
+    </div>
+
+    <footer>
+      Powered by <a href="https://github.com/ficbase/transmute" target="_blank">transmute</a>
+      · 处理完全在浏览器内完成，文件不会上传到服务器
+    </footer>
+  </div>
+
+  <script type="module">
+    import init, { txt_to_epub, epub_to_txt } from './pkg/transmute_web.js';
+
+    // ── State ──────────────────────────────────────────────────────
+    const state = {
+      file: null,
+      cover: null,
+      result: null,
+      resultName: null,
+      mode: null,
+    };
+
+    // ── DOM refs ───────────────────────────────────────────────────
+    const $ = (s) => document.querySelector(s);
+    const dropzone = $('#dropzone');
+    const fileInput = $('#fileInput');
+    const fileRow = $('#fileRow');
+    const fileName = $('#fileName');
+    const fileFormat = $('#fileFormat');
+    const fileRemove = $('#fileRemove');
+    const coverRow = $('#coverRow');
+    const coverZone = $('#coverZone');
+    const coverInput = $('#coverInput');
+    const coverFileRow = $('#coverFileRow');
+    const coverFileName = $('#coverFileName');
+    const coverRemove = $('#coverRemove');
+    const convertBtn = $('#convertBtn');
+    const downloadBtn = $('#downloadBtn');
+    const status = $('#status');
+
+    // ── Helpers ────────────────────────────────────────────────────
+    function setStatus(msg, cls) {
+      status.textContent = msg;
+      status.className = 'status';
+      if (cls) status.classList.add(cls);
+    }
+
+    function getExt(name) {
+      const i = name.lastIndexOf('.');
+      return i >= 0 ? name.slice(i + 1).toLowerCase() : '';
+    }
+
+    function updateUI() {
+      const hasFile = !!state.file;
+      fileRow.style.display = hasFile ? 'flex' : 'none';
+      dropzone.style.display = hasFile ? 'none' : 'block';
+
+      const isTxt = state.mode === 'txt2epub';
+      coverRow.style.display = isTxt ? 'block' : 'none';
+      convertBtn.disabled = !state.file;
+      convertBtn.textContent = isTxt
+        ? '转换为 EPUB' : state.mode === 'epub2txt'
+        ? '转换为 TXT' : '选择文件开始转换';
+    }
+
+    // ── File selection ─────────────────────────────────────────────
+    function setFile(file) {
+      const ext = getExt(file.name);
+      const mode = ext === 'txt' ? 'txt2epub' : ext === 'epub' ? 'epub2txt' : null;
+      if (!mode) { setStatus('不支持的文件格式，请选择 .txt 或 .epub 文件', 'error'); return; }
+      state.file = file;
+      state.mode = mode;
+      state.result = null;
+      state.cover = null;
+      fileName.textContent = file.name;
+      fileFormat.textContent = ext.toUpperCase();
+      coverFileRow.style.display = 'none';
+      coverZone.style.display = 'block';
+      updateUI();
+      setStatus('');
+    }
+
+    dropzone.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('drag');
+      if (e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length) setFile(fileInput.files[0]);
+    });
+    fileRemove.addEventListener('click', () => {
+      state.file = null;
+      state.mode = null;
+      state.result = null;
+      fileInput.value = '';
+      downloadBtn.classList.remove('show');
+      updateUI();
+      setStatus('');
+    });
+
+    // ── Cover selection ────────────────────────────────────────────
+    coverZone.addEventListener('click', () => coverInput.click());
+    coverInput.addEventListener('change', () => {
+      if (coverInput.files.length) {
+        state.cover = coverInput.files[0];
+        coverFileName.textContent = state.cover.name;
+        coverFileRow.style.display = 'flex';
+        coverZone.style.display = 'none';
+      }
+    });
+    coverRemove.addEventListener('click', () => {
+      state.cover = null;
+      coverInput.value = '';
+      coverFileRow.style.display = 'none';
+      coverZone.style.display = 'block';
+    });
+
+    // ── Convert ────────────────────────────────────────────────────
+    convertBtn.addEventListener('click', async () => {
+      if (!state.file) return;
+      convertBtn.disabled = true;
+      setStatus('正在转换...');
+      downloadBtn.classList.remove('show');
+
+      try {
+        const buf = await state.file.arrayBuffer();
+
+        if (state.mode === 'txt2epub') {
+          const decoder = new TextDecoder('utf-8');
+          const txt = decoder.decode(new Uint8Array(buf));
+          let coverData = null, coverType = null, coverName = null;
+          if (state.cover) {
+            coverData = new Uint8Array(await state.cover.arrayBuffer());
+            coverType = state.cover.type || 'image/jpeg';
+            coverName = state.cover.name;
+          }
+          const epubBytes = txt_to_epub(txt, coverData, coverType, coverName);
+          if (epubBytes.length === 0) {
+            setStatus('转换失败，请检查输入文件', 'error');
+            convertBtn.disabled = false;
+            return;
+          }
+          state.result = new Uint8Array(epubBytes);
+          state.resultName = state.file.name.replace(/\.txt$/i, '') + '.epub';
+        } else {
+          const epubData = new Uint8Array(buf);
+          const txt = epub_to_txt(epubData);
+          state.result = new TextEncoder().encode(txt);
+          state.resultName = state.file.name.replace(/\.epub$/i, '') + '.txt';
+        }
+
+        setStatus('✅ 转换完成', 'success');
+        downloadBtn.classList.add('show');
+      } catch (e) {
+        setStatus('转换出错: ' + e.message, 'error');
+      } finally {
+        convertBtn.disabled = false;
+      }
+    });
+
+    // ── Download ───────────────────────────────────────────────────
+    downloadBtn.addEventListener('click', () => {
+      if (!state.result) return;
+      const blob = new Blob([state.result]);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = state.resultName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+
+    // ── Init WASM ──────────────────────────────────────────────────
+    (async () => {
+      try {
+        await init();
+        setStatus('');
+      } catch (e) {
+        setStatus('加载 WASM 模块失败，请刷新页面重试', 'error');
+        console.error(e);
+      }
+    })();
+  </script>
+</body>
+</html>
