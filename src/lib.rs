@@ -221,8 +221,7 @@ pub fn epub_to_txt(epub_data: &[u8]) -> String {
 
             for ch in &book.chapters {
                 txt.push_str(&format!("{}\n\n", ch.title));
-                let body = strip_html(&ch.body);
-                txt.push_str(body.trim());
+                txt.push_str(ch.body.trim());
                 txt.push_str("\n\n");
             }
             txt
@@ -439,7 +438,20 @@ fn parse_xhtml(xhtml: &str) -> (String, String) {
             })
     }).unwrap_or_default();
 
-    let body = html_to_text(xhtml);
+    // Remove <h1>...</h1> and <title>...</title> from body to avoid title duplication
+    let mut body_src = xhtml.to_string();
+    if let Some(start) = body_src.find("<title>") {
+        if let Some(end) = body_src.find("</title>") {
+            body_src.replace_range(start..end + 8, "");
+        }
+    }
+    if let Some(start) = body_src.find("<h1>") {
+        if let Some(end) = body_src.find("</h1>") {
+            body_src.replace_range(start..end + 5, "");
+        }
+    }
+
+    let body = html_to_text(&body_src);
     (title, body)
 }
 
@@ -447,10 +459,27 @@ fn html_to_text(html: &str) -> String {
     let squashed = html.replace('\n', " ");
     let mut out = String::with_capacity(squashed.len());
     let mut skip = 0u32;
+    let mut ring = ['\0'; 5];
+    let mut ri = 0;
+
     for c in squashed.chars() {
+        ring[ri % 5] = c;
+        ri = ri.wrapping_add(1);
+
         if c == '<' { skip += 1; }
         if skip == 0 { out.push(c); }
-        if c == '>' && skip > 0 { skip -= 1; }
+        if c == '>' && skip > 0 {
+            skip -= 1;
+            let i = ri.wrapping_sub(1) % 5;
+            let prev4 = |n: usize| ring[(i.wrapping_sub(n)) % 5];
+            let is_br = prev4(1) == 'r' && prev4(2) == 'b'
+                && (prev4(3) == '<' || (prev4(3) == '/' && prev4(4) == '<')
+                    || (prev4(3) == ' ' && prev4(4) == '/'));
+            if is_br { out.push('\n'); }
+            if prev4(1) == 'p' && prev4(2) == '/' && prev4(3) == '<' {
+                out.push('\n'); out.push('\n');
+            }
+        }
     }
     let mut result = String::with_capacity(out.len());
     let mut prev = '\0';
