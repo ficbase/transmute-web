@@ -4,11 +4,16 @@
 
 use std::collections::HashMap;
 use std::io::{self, Read, Write};
+use std::sync::atomic::{AtomicU64, Ordering};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 use zip::read::ZipArchive;
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipWriter};
+
+#[cfg(target_arch = "wasm32")]
+static WASM_TIMESTAMP: AtomicU64 = AtomicU64::new(0);
+static UUID_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 // ── EPUB document model ──────────────────────────────────────────────
 
@@ -86,6 +91,15 @@ pub fn wasm_test() -> Vec<u8> {
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub fn version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
+}
+
+/// Set current timestamp (unix seconds) from JS. Must be called before conversion.
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+pub fn set_timestamp(secs: u64) {
+    #[cfg(target_arch = "wasm32")]
+    WASM_TIMESTAMP.store(secs, Ordering::Relaxed);
+    #[cfg(not(target_arch = "wasm32"))]
+    let _ = secs;
 }
 
 /// Initialize panic hook for better error messages in browser console.
@@ -593,10 +607,7 @@ fn generate_cover_svg(title: &str, author: &str) -> String {
 
 fn iso8601_now() -> String {
     #[cfg(target_arch = "wasm32")]
-    let secs: u64 = {
-        let ms = js_sys::Date::new_0().get_time() as u64;
-        ms / 1000
-    };
+    let secs: u64 = WASM_TIMESTAMP.load(Ordering::Relaxed);
     #[cfg(not(target_arch = "wasm32"))]
     let secs: u64 = {
         use std::time::SystemTime;
@@ -656,7 +667,7 @@ struct Lcg { state: u64 }
 impl Lcg {
     fn new() -> Self {
         #[cfg(target_arch = "wasm32")]
-        let seed = (js_sys::Math::random() * u64::MAX as f64) as u64;
+        let seed = UUID_COUNTER.fetch_add(1, Ordering::Relaxed);
         #[cfg(not(target_arch = "wasm32"))]
         let seed = {
             use std::time::{SystemTime, UNIX_EPOCH};
