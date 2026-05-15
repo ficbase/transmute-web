@@ -5,6 +5,7 @@
 use std::collections::HashMap;
 use std::io::{self, Read, Write};
 use std::sync::atomic::{AtomicU64, Ordering};
+use serde::Deserialize;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 use zip::read::ZipArchive;
@@ -56,6 +57,21 @@ const CONTAINER_XML: &str = "\
     <rootfile full-path=\"OEBPS/content.opf\" media-type=\"application/oebps-package+xml\"/>
   </rootfiles>
 </container>";
+
+// ── User-supplied metadata (JSON) ────────────────────────────────────
+
+#[derive(Deserialize, Default)]
+struct EpubMetaInput {
+    title: Option<String>,
+    author: Option<String>,
+    language: Option<String>,
+    description: Option<String>,
+    publisher: Option<String>,
+    identifier: Option<String>,
+    date: Option<String>,
+    rights: Option<String>,
+    subjects: Option<Vec<String>>,
+}
 
 // ── WASM exports ─────────────────────────────────────────────────────
 
@@ -115,10 +131,37 @@ pub fn txt_to_epub(
     cover_data: Option<Vec<u8>>,
     cover_type: Option<String>,
     cover_name: Option<String>,
+    metadata_json: Option<String>,
 ) -> Vec<u8> {
-    let author = extract_author(txt);
-    let title = extract_title(txt).unwrap_or_else(|| "untitled".into());
+    // auto-detect from text
+    let detected_author = extract_author(txt);
+    let detected_title = extract_title(txt);
     let chapters = split_into_chapters(txt);
+
+    // parse user metadata JSON, fall back to auto-detected
+    let meta: EpubMetaInput = metadata_json
+        .as_deref()
+        .and_then(|j| serde_json::from_str(j).ok())
+        .unwrap_or_default();
+
+    let title = meta.title
+        .or(detected_title)
+        .unwrap_or_else(|| "untitled".into());
+    let author = meta.author.unwrap_or(detected_author);
+    let language = meta.language.unwrap_or_else(|| "zh".into());
+
+    let mut extra = HashMap::new();
+    if let Some(d) = meta.description { extra.insert("dcterms:description".into(), d); }
+    if let Some(p) = meta.publisher { extra.insert("dcterms:publisher".into(), p); }
+    if let Some(d) = meta.date { extra.insert("dcterms:date".into(), d); }
+    if let Some(r) = meta.rights { extra.insert("dcterms:rights".into(), r); }
+    if let Some(ref subs) = meta.subjects {
+        for sub in subs {
+            // dc:subject can appear multiple times
+            let n = extra.keys().filter(|k: &&String| k.starts_with("dc:subject")).count();
+            extra.insert(format!("dc:subject{}", n + 1), sub.clone());
+        }
+    }
 
     let cover = cover_data.map(|data| CoverImage {
         data,
@@ -130,8 +173,9 @@ pub fn txt_to_epub(
         metadata: Metadata {
             title,
             author,
-            language: "zh".into(),
-            ..Default::default()
+            language,
+            identifier: meta.identifier.unwrap_or_default(),
+            extra,
         },
         chapters,
         cover,

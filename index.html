@@ -156,6 +156,56 @@
     .status.error { color: #ff6b6b; }
     .status.success { color: #22c55e; }
 
+    .meta-section {
+      margin-top: 12px;
+      border: 1px solid #2a2a35;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .meta-header {
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #b0b0c0;
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .meta-header:hover { background: #22222c; }
+    .meta-header .arrow { transition: transform 0.2s; }
+    .meta-header.open .arrow { transform: rotate(180deg); }
+    .meta-body {
+      padding: 0 14px 14px;
+      display: none;
+    }
+    .meta-body.show { display: block; }
+    .meta-row {
+      margin-top: 10px;
+    }
+    .meta-row label {
+      display: block;
+      font-size: 12px;
+      color: #777;
+      margin-bottom: 4px;
+    }
+    .meta-row input, .meta-row textarea {
+      width: 100%;
+      padding: 8px 10px;
+      background: #16161c;
+      border: 1px solid #2a2a35;
+      border-radius: 6px;
+      color: #e0e0e0;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .meta-row input:focus, .meta-row textarea:focus {
+      border-color: #6c5ce7;
+    }
+    .meta-row textarea { resize: vertical; min-height: 44px; }
+
     footer {
       margin-top: 40px;
       font-size: 12px;
@@ -204,6 +254,49 @@
         </div>
       </div>
 
+      <!-- Metadata editor -->
+      <div class="meta-section" id="metaSection" style="display:none">
+        <div class="meta-header" id="metaToggle">📋 元数据设置 <span class="arrow">▾</span></div>
+        <div class="meta-body" id="metaBody">
+          <div class="meta-row">
+            <label>书名</label>
+            <input type="text" id="metaTitle" placeholder="自动检测">
+          </div>
+          <div class="meta-row">
+            <label>作者</label>
+            <input type="text" id="metaAuthor" placeholder="自动检测">
+          </div>
+          <div class="meta-row">
+            <label>语言</label>
+            <input type="text" id="metaLang" placeholder="zh" value="zh" style="width:80px">
+          </div>
+          <div class="meta-row">
+            <label>简介</label>
+            <textarea id="metaDesc" rows="2" placeholder="内容简介"></textarea>
+          </div>
+          <div class="meta-row">
+            <label>出版社</label>
+            <input type="text" id="metaPublisher" placeholder="出版社">
+          </div>
+          <div class="meta-row">
+            <label>标识符</label>
+            <input type="text" id="metaIdentifier" placeholder="ISBN 或自定义 ID">
+          </div>
+          <div class="meta-row">
+            <label>日期</label>
+            <input type="text" id="metaDate" placeholder="2024-01-01">
+          </div>
+          <div class="meta-row">
+            <label>版权</label>
+            <input type="text" id="metaRights" placeholder="版权声明">
+          </div>
+          <div class="meta-row">
+            <label>标签</label>
+            <input type="text" id="metaSubjects" placeholder="标签1, 标签2">
+          </div>
+        </div>
+      </div>
+
       <button class="btn btn-primary" id="convertBtn" disabled>选择文件开始转换</button>
       <button class="btn btn-download" id="downloadBtn">⬇ 下载转换结果</button>
       <div class="status" id="status"></div>
@@ -244,6 +337,18 @@
     const convertBtn = $('#convertBtn');
     const downloadBtn = $('#downloadBtn');
     const status = $('#status');
+    const metaSection = $('#metaSection');
+    const metaToggle = $('#metaToggle');
+    const metaBody = $('#metaBody');
+    const metaTitle = $('#metaTitle');
+    const metaAuthor = $('#metaAuthor');
+    const metaLang = $('#metaLang');
+    const metaDesc = $('#metaDesc');
+    const metaPublisher = $('#metaPublisher');
+    const metaIdentifier = $('#metaIdentifier');
+    const metaDate = $('#metaDate');
+    const metaRights = $('#metaRights');
+    const metaSubjects = $('#metaSubjects');
 
     // ── Helpers ────────────────────────────────────────────────────
     function setStatus(msg, cls) {
@@ -264,6 +369,7 @@
 
       const isTxt = state.mode === 'txt2epub';
       coverRow.style.display = isTxt ? 'block' : 'none';
+      metaSection.style.display = isTxt ? 'block' : 'none';
       convertBtn.disabled = !state.file;
       convertBtn.textContent = isTxt
         ? '转换为 EPUB' : state.mode === 'epub2txt'
@@ -325,6 +431,37 @@
       coverZone.style.display = 'block';
     });
 
+    // ── Metadata editor ──────────────────────────────────────────────
+    metaToggle.addEventListener('click', () => {
+      const open = metaBody.classList.toggle('show');
+      metaToggle.classList.toggle('open', open);
+    });
+
+    function val(id) { const v = id.value.trim(); return v || null; }
+
+    function collectMetadata() {
+      const obj = {};
+      const title = val(metaTitle);
+      const author = val(metaAuthor);
+      const lang = val(metaLang);
+      const desc = val(metaDesc);
+      const pub = val(metaPublisher);
+      const ident = val(metaIdentifier);
+      const date = val(metaDate);
+      const rights = val(metaRights);
+      const subjects = val(metaSubjects);
+      if (title) obj.title = title;
+      if (author) obj.author = author;
+      if (lang) obj.language = lang;
+      if (desc) obj.description = desc;
+      if (pub) obj.publisher = pub;
+      if (ident) obj.identifier = ident;
+      if (date) obj.date = date;
+      if (rights) obj.rights = rights;
+      if (subjects) obj.subjects = subjects.split(/[,，]/).map(s => s.trim()).filter(Boolean);
+      return Object.keys(obj).length ? JSON.stringify(obj) : null;
+    }
+
     // ── Convert ────────────────────────────────────────────────────
     convertBtn.addEventListener('click', async () => {
       if (!state.file) return;
@@ -344,7 +481,8 @@
             coverType = state.cover.type || 'image/jpeg';
             coverName = state.cover.name;
           }
-          const epubBytes = txt_to_epub(txt, coverData, coverType, coverName);
+          const metaJson = collectMetadata();
+          const epubBytes = txt_to_epub(txt, coverData, coverType, coverName, metaJson);
           if (epubBytes.length === 0) {
             setStatus('转换失败，请检查输入文件', 'error');
             convertBtn.disabled = false;
