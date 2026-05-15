@@ -267,7 +267,6 @@
               <option value="utf-16le">UTF-16 LE</option>
               <option value="utf-16be">UTF-16 BE</option>
             </select>
-            <span id="encDetected" style="font-size:11px;color:#666"></span>
           </div>
           <div class="meta-row">
             <label>书名</label>
@@ -361,7 +360,6 @@
     const metaRights = $('#metaRights');
     const metaSubjects = $('#metaSubjects');
     const metaEncoding = $('#metaEncoding');
-    const encDetected = $('#encDetected');
 
     // ── Helpers ────────────────────────────────────────────────────
     function setStatus(msg, cls) {
@@ -506,9 +504,7 @@
 
         if (state.mode === 'txt2epub') {
           const manualEnc = metaEncoding.value;
-          const autoEnc = detectEncoding(buf);
-          encDetected.textContent = '检测: ' + autoEnc.toUpperCase();
-          const enc = manualEnc || autoEnc;
+          const enc = manualEnc || detectEncoding(buf);
           const txt = decodeBuffer(buf, enc);
           let coverData, coverType, coverName; // undefined, not null
           if (state.cover) {
