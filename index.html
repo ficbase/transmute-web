@@ -387,7 +387,7 @@
       try {
         await init();
         init_panic_hook();
-        set_timestamp(Math.floor(Date.now() / 1000));
+        set_timestamp(BigInt(Math.floor(Date.now() / 1000)));
         setStatus('');
       } catch (e) {
         setStatus('加载 WASM 模块失败，请刷新页面重试', 'error');
