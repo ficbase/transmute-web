@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Package only public assets; optionally add AdSense ownership verification."""
 import html
+import hashlib
 import os
 from pathlib import Path
 import re
@@ -32,20 +33,37 @@ def main():
     if output.exists():
         shutil.rmtree(output)
     output.mkdir()
+    # Fingerprint module dependencies as well as page assets so an existing
+    # browser cannot mix the old UI or WASM with a newly deployed page.
+    versions = {}
+    def write_asset(name, data):
+        target = output / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+        versions[name] = hashlib.sha256(data).hexdigest()[:12]
+
+    write_asset("pkg/transmute_web_bg.wasm", wasm.read_bytes())
+    module = js.read_text(encoding="utf-8").replace(
+        "transmute_web_bg.wasm'", f"transmute_web_bg.wasm?v={versions['pkg/transmute_web_bg.wasm']}'")
+    write_asset("pkg/transmute_web.js", module.encode("utf-8"))
+    for name in ("site.css", "favicon.svg", "i18n.js"):
+        write_asset(name, (ROOT / name).read_bytes())
+    converter = (ROOT / "converter.js").read_text(encoding="utf-8")
+    for name in ("i18n.js", "pkg/transmute_web.js"):
+        converter = converter.replace(f"'./{name}'", f"'./{name}?v={versions[name]}'")
+    write_asset("converter.js", converter.encode("utf-8"))
     for page in PAGES:
         canonical = site_url if page == "index.html" else site_url + page
         tags = f'<link rel="canonical" href="{html.escape(canonical, quote=True)}">'
         if publisher:
             tags += f'\n  <meta name="google-adsense-account" content="{publisher}">'
         source = (ROOT / page).read_text(encoding="utf-8")
+        for name in ("site.css", "favicon.svg", "i18n.js", "converter.js"):
+            source = source.replace(f'="{name}"', f'="{name}?v={versions[name]}"')
         if source.count("<!-- site-metadata -->") != 1:
             raise SystemExit(f"Missing or duplicate site metadata marker in {page}")
         (output / page).write_text(source.replace("<!-- site-metadata -->", tags), encoding="utf-8")
-    shutil.copy2(ROOT / "site.css", output / "site.css")
     shutil.copytree(ROOT / "examples", output / "examples")
-    (output / "pkg").mkdir()
-    for file in (js, wasm):
-        shutil.copy2(file, output / "pkg" / file.name)
     (output / ".nojekyll").touch()
     locations = [site_url if p == "index.html" else site_url + p for p in PAGES]
     entries = "".join(f"  <url><loc>{escape(url)}</loc></url>\n" for url in locations)

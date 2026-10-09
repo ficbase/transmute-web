@@ -1,47 +1,27 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>使用指南与常见问题 · Transmute</title>
-  <meta name="description" content="了解 TXT 转 EPUB、EPUB 转 TXT 的步骤、章节识别、中文乱码处理、封面和格式限制。">
-  <!-- site-metadata -->
-  <link rel="stylesheet" href="site.css">
-</head>
-<body class="document-page">
-  <div class="container">
-    <header><h1>使用指南与常见问题</h1><nav class="site-nav" aria-label="网站导航"><a href="index.html">转换器</a><a href="guide.html" aria-current="page">使用指南</a><a href="about.html">关于</a><a href="contact.html">联系</a></nav></header>
-    <main class="card site-content">
-<h2>TXT 转 EPUB：从文本到带目录的电子书</h2>
-<p>TXT 适合保存文字，EPUB 则可以把文字、章节目录和书籍信息放进同一个文件。Transmute 适合整理自己的写作、笔记和已获授权的文本。转换不会替你校对内容，也不会修复原文件中已有的错字。</p>
-<ol><li>在转换器中选择或拖入一个 .txt 文件。网站会根据扩展名选择转换方向。</li><li>展开「书籍元数据」，检查书名和作者。自动识别会查找前 20 行里的《书名》和作者信息；未识别时可以手动填写。</li><li>设置文本语言，并按需要填写简介、出版社、标识符、日期、版权和标签。这些字段用于电子书信息，不会改变正文内容。</li><li>可以添加自己的封面图片。为了兼容常见阅读器，建议使用 JPEG 或 PNG。不添加图片时，转换器会生成含书名和作者的 SVG 封面。</li><li>点击「转换为 EPUB」，完成后点击下载。在阅读器中检查目录、段落、封面和书籍信息，并保留原始 TXT。</li></ol>
-<h3>怎样让章节被识别？</h3>
-<p>把章节标题独立放在一行。转换器识别「第」加编号和「章 / 节 / 卷 / 部 / 篇 / 集」的标题，也识别以「Chapter 」「CHAPTER 」或「# 」开头的行。下面是一段可以直接用于试转换的结构：</p>
-<pre>《我的旅行笔记》
-作者：小林
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="guide.title">A guide to your next chapter. · EpuBloom</title>
+<meta name="description" data-i18n-content="guide.description" content="How to convert TXT and EPUB, prepare chapter headings, edit book details, and troubleshoot encoding or file problems.">
+<!-- site-metadata -->
+<link rel="icon" type="image/svg+xml" href="favicon.svg"><link rel="stylesheet" href="site.css">
+<script type="module" src="i18n.js"></script>
+</head><body class="document-page">
+<a class="skip-link" href="#main" data-i18n="skip">Skip to content</a>
+<header class="site-header shell">
+  <a class="brand" href="index.html" aria-label="EpuBloom home" data-i18n-label="brand.home"><img src="favicon.svg" width="36" height="36" alt=""><span>EpuBloom<span class="brand-dot">.</span></span></a>
+  <nav class="main-nav" aria-label="Main navigation" data-i18n-label="nav.label"><a href="index.html"><span data-i18n="nav.converter" >Converter</span></a><a href="guide.html" aria-current="page"><span data-i18n="nav.guide" >Guide</span></a><a href="about.html"><span data-i18n="nav.about" >About</span></a></nav>
+  <label class="language-control"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h12M9 3v2M5 5c1 5 4 8 8 10M13 5c-1 5-4 8-8 10M14 21l4-11 4 11M15.5 17h5"/></svg><select id="languageSelect" aria-label="Website language" data-i18n-label="language.label"><option value="en" lang="en">English</option><option value="zh" lang="zh-CN">简体中文</option></select></label>
+</header>
+<main id="main" class="document-shell shell"><div class="document-heading"><p data-i18n="guide.eyebrow" class="eyebrow">GUIDE &amp; FAQ</p><h1 data-i18n="guide.heading" >A guide to your next chapter.</h1></div><article class="document-content"><h2 data-i18n="guide.txt.title" >TXT to EPUB: give your text a home.</h2><p data-i18n-html="guide.txt.intro" >TXT keeps things simple. EPUB adds book details, a cover, and a navigable table of contents in one file. Use EpuBloom for your own writing, notes, or text you have permission to use. It won’t proofread or repair mistakes in the source.</p><ol data-i18n-html="guide.txt.steps" ><li>Choose or drop a .txt file in the converter. The extension determines the conversion direction.</li><li>Expand “Book details” and check the title and author. The first 20 lines are checked for Title: and Author: headers, as well as Chinese title and author markers. You can edit the fields yourself.</li><li>Set the book’s language code, such as en or zh. Website language and book language are separate. Other optional fields include description, publisher, identifier, date, rights, and subjects.</li><li>Add a cover if you’d like. JPEG and PNG are good choices for reader compatibility. Without an image, a simple SVG cover is generated from the title and author.</li><li>Convert to EPUB and download. Open it in your reader and check the chapters, text, cover, and book details. Keep the original TXT.</li></ol><h3 data-i18n="guide.chapters.title" >Make chapter headings easy to spot.</h3><p data-i18n-html="guide.chapters.body" >Put each heading on its own line. Lines beginning with “Chapter ”, “CHAPTER ”, or “# ” are recognized, along with numbered Chinese chapter headings such as 第一章. For example:</p><pre data-i18n="guide.example" >Title: The Little Journey
+Author: EpuBloom
 
-第一章 出发
-　　这是第一段正文。
-　　这是第二段正文。
+Chapter 1 — A quiet morning
+The notebook was still empty.
+There was a whole day to fill it.
 
-第二章 抵达
-　　这是第二章的正文。</pre>
-<p>如果目录没有按预期生成，先检查标题是否单独成行，是否含有对应格式的编号。没有可识别标题的内容会按默认章节整理。章前的书名、作者或前言也可能被当作正文，下载后需要检查。</p>
-<p><a href="examples/sample.txt" download>下载完整示例 TXT</a>，先确认你的浏览器和阅读器能完成整个流程，再转换自己的长文。</p>
-<h3>中文乱码怎么处理？</h3>
-<p>转换器优先根据 BOM 标记识别 UTF-8、UTF-16LE 和 UTF-16BE；没有 BOM 时先验证 UTF-8，失败后尝试 GBK。自动识别无法覆盖所有历史编码。如果文字出现乱码，可在文本编辑器里确认原文件编码并另存为 UTF-8，再重新选择文件。若原文本已被错误保存，转换无法还原丢失的字符。</p>
-<h2>EPUB 转 TXT：提取文字</h2>
-<p>选择 .epub 文件后，点击「转换为 TXT」并下载。输出包含可解析的书名、作者、章节标题和文字。TXT 不保存图片、字体、链接、表格排版或阅读器布局，适合文字整理，不适合保真备份电子书。</p>
-<p>解析器支持的 EPUB 结构有限。来自不同制作工具的电子书可能出现目录顺序、实体字符或内容提取不完整的问题；只有图片的页面也不能转换成文字。本工具没有 OCR，也不解除 DRM 加密。对结果有完整性要求时，应与原书逐章核对。</p>
-<h2>常见问题</h2>
-<h3>文件会被上传吗？</h3><p>转换逻辑通过 WebAssembly 在浏览器内运行，所选文本和封面没有上传到网站服务器。页面的访问请求仍由托管服务处理，详情见<a href="privacy.html">隐私说明</a>。</p>
-<h3>为什么大文件转换时页面会卡顿？</h3><p>文件读取、解析和输出都占用当前设备的内存，转换过程中页面可能暂时没有响应。可先用小文件测试，关闭不需要的页面，再处理长文。本站没有承诺固定的文件大小上限；实际可处理的大小取决于浏览器、设备和文件内容。</p>
-<h3>转换器一直加载失败怎么办？</h3><p>请使用支持 WebAssembly 的现代浏览器，检查网络后刷新。网站首次打开时需要下载转换模块；断网或资源被拦截会导致模块无法加载。若仍失败，可通过<a href="contact.html">联系与反馈</a>提供浏览器版本和错误提示。</p>
-<h3>下载以后怎样检查？</h3><p>TXT 用文本编辑器打开，确认中文字符、章节顺序和段落；EPUB 用你实际使用的阅读器打开，确认封面、目录链接和正文。原文件和转换结果应分别保存，避免覆盖。</p>
-<p><a href="index.html">返回转换器</a></p></main>
-    <footer>Transmute · 在浏览器内转换你的文件
-      <nav class="site-nav" aria-label="页脚导航"><a href="index.html">转换器</a><a href="guide.html">使用指南</a><a href="about.html">关于</a><a href="contact.html">联系与反馈</a><a href="privacy.html">隐私说明</a></nav>
-    </footer>
-  </div>
-</body>
-</html>
+Chapter 2 — Along the river
+A little wandering brought a fresh perspective.</pre><p data-i18n-html="guide.chapters.note" >If the table of contents doesn’t look right, check that headings are on separate lines and match one of these patterns. Text with no recognized heading uses a default chapter. Introductory text may become part of the first chapter, so check the result.</p><p data-i18n-html="guide.sample" ><a href="examples/sample-en.txt" data-sample-link download>Download a sample TXT</a> and try the whole process before converting a long manuscript.</p><h3 data-i18n="guide.encoding.title" >When text looks garbled.</h3><p data-i18n-html="guide.encoding.body" >The converter checks BOM markers for UTF-8, UTF-16LE, and UTF-16BE. Without a BOM, it tries valid UTF-8 first, then GBK. This can’t cover every legacy encoding. If text looks wrong, check the original in a text editor, save a copy as UTF-8, and select it again. Conversion can’t restore characters already lost through an incorrect save.</p><h2 data-i18n="guide.epub.title" >EPUB to TXT: back to the words.</h2><p data-i18n-html="guide.epub.body" >Choose an EPUB, convert to TXT, and download its readable title, author, headings, and text. Plain text doesn’t preserve images, fonts, links, tables, or page layouts. Use it for editing and organizing words, rather than as a faithful ebook backup.</p><p data-i18n-html="guide.epub.limits" >EPUB structures vary. Books from different tools may have missing text, unusual entity characters, or unexpected chapter ordering. Image-only pages aren’t recognized as text. There’s no OCR or DRM removal. Compare with the original chapter by chapter when completeness matters.</p><h2 data-i18n="guide.faq.title" >A few common questions.</h2><h3 data-i18n="guide.private.title" >Are files uploaded?</h3><p data-i18n-html="guide.private.body" >No. The converter runs locally in your browser using WebAssembly. Ordinary website requests are still handled by the server; see the <a href="privacy.html">privacy notice</a>.</p><h3 data-i18n="guide.large.title" >Why does a large file slow the page down?</h3><p data-i18n-html="guide.large.body" >Reading, parsing, and creating a file use your device’s memory. The page may pause during conversion. Start small and close unneeded tabs before working on a long text. There’s no guaranteed file-size limit; capacity depends on your browser, device, and content.</p><h3 data-i18n="guide.loading.title" >What if the converter doesn’t load?</h3><p data-i18n-html="guide.loading.body" >Use a modern browser with WebAssembly support, check your connection, and refresh. The first visit needs to download the converter. If resources are blocked or the network is unavailable, it can’t start. If the problem continues, <a href="contact.html">send a report</a> with the browser version and error message.</p><h3 data-i18n="guide.check.title" >How do I check the download?</h3><p data-i18n-html="guide.check.body" >Open TXT in a text editor to check characters, paragraph breaks, and chapter order. Open EPUB in the reader you actually use to check its cover, contents links, and text. Keep the original and the converted file separately.</p><p data-i18n-html="guide.back" ><a href="index.html">Back to the converter ↗</a></p></article></main>
+<footer class="site-footer shell"><div><a class="footer-brand" href="index.html">EpuBloom.</a><p data-i18n="footer.tagline" >A little less formatting. A little more reading.</p></div><nav aria-label="Footer navigation" data-i18n-label="nav.footer"><a href="guide.html"><span data-i18n="nav.guide" >Guide</span></a><a href="contact.html"><span data-i18n="nav.contact" >Contact</span></a><a href="privacy.html"><span data-i18n="nav.privacy" >Privacy</span></a><a href="https://github.com/ficbase/transmute-web">GitHub ↗</a></nav><p class="footer-credit"><span data-i18n="footer.powered" >Built with</span> <a href="https://github.com/ficbase/transmute">Transmute</a> · <span data-i18n="footer.local" >Made to stay on your device</span></p></footer>
+</body></html>
