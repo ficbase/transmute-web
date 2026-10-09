@@ -444,6 +444,69 @@ const messages = {
   }
 };
 
+// Animate real content heights so long translations and resized forms stay unclipped.
+export function createDisclosure(trigger, panel, { initialOpen = false, setVisible = () => {} } = {}) {
+  let expanded = initialOpen;
+  let animation = null;
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  panel.hidden = !expanded;
+  panel.inert = !expanded;
+  trigger.setAttribute('aria-expanded', String(expanded));
+
+  function settle() {
+    panel.hidden = !expanded;
+    panel.style.overflow = '';
+    setVisible(expanded);
+    animation?.cancel();
+    animation = null;
+  }
+
+  function setExpanded(next) {
+    const height = panel.hidden ? 0 : panel.getBoundingClientRect().height;
+    const opacity = panel.hidden ? 0 : Number(getComputedStyle(panel).opacity);
+    animation?.cancel();
+    animation = null;
+    expanded = next;
+    trigger.setAttribute('aria-expanded', String(expanded));
+    if (!expanded && panel.contains(document.activeElement)) trigger.focus();
+    panel.inert = !expanded;
+    if (reducedMotion.matches || !panel.animate) { settle(); return; }
+    // Native details must remain open until their closing animation finishes.
+    setVisible(true);
+    panel.hidden = false;
+    panel.style.overflow = 'hidden';
+    const current = panel.animate([
+      { height: height + 'px', opacity },
+      { height: (expanded ? panel.scrollHeight : 0) + 'px', opacity: expanded ? 1 : 0 },
+    ], { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'both' });
+    animation = current;
+    current.onfinish = () => { if (animation === current) settle(); };
+  }
+
+  trigger.addEventListener('click', event => {
+    event.preventDefault();
+    setExpanded(!expanded);
+  });
+  reducedMotion.addEventListener('change', () => { if (reducedMotion.matches && animation) settle(); });
+  return { setExpanded };
+}
+
+document.querySelectorAll('details').forEach((details, index) => {
+  const summary = details.querySelector(':scope > summary');
+  if (!summary) return;
+  const panel = document.createElement('div');
+  panel.className = 'disclosure-panel';
+  panel.id = 'faq-panel-' + index;
+  const content = document.createElement('div');
+  content.className = 'disclosure-content';
+  [...details.childNodes].filter(node => node !== summary).forEach(node => content.appendChild(node));
+  panel.appendChild(content);
+  details.appendChild(panel);
+  details.dataset.animatedDisclosure = '';
+  summary.setAttribute('aria-controls', panel.id);
+  createDisclosure(summary, panel, { initialOpen: details.open, setVisible: open => { details.open = open; } });
+});
+
 const supported = ['en', 'zh'];
 let language = document.documentElement.dataset.language || 'en';
 try { const saved = localStorage.getItem('epubloom.language'); if (language !== 'zh' && supported.includes(saved)) language = saved; } catch { /* The language switch also works without storage. */ }
