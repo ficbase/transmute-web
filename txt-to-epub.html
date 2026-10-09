@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="article.txt.title">How to Convert TXT to EPUB with Chapters & a Cover | EpuBloom</title>
+<meta name="description" data-i18n-content="article.txt.description" content="Turn a text file into an EPUB ebook in your browser. Learn how to format chapter headings, set a title and author, add a cover, and check your ebook.">
+<!-- site-metadata -->
+<link rel="icon" type="image/svg+xml" href="favicon.svg"><link rel="stylesheet" href="site.css">
+<script type="module" src="i18n.js"></script>
+</head><body class="document-page">
+<a class="skip-link" href="#main" data-i18n="skip">Skip to content</a>
+<header class="site-header shell">
+  <a class="brand" href="index.html" aria-label="EpuBloom home" data-i18n-label="brand.home"><img src="favicon.svg" width="36" height="36" alt=""><span>EpuBloom<span class="brand-dot">.</span></span></a>
+  <nav class="main-nav" aria-label="Main navigation" data-i18n-label="nav.label"><a href="index.html"><span data-i18n="nav.converter" >Converter</span></a><a href="guide.html" aria-current="page"><span data-i18n="nav.guide" >Guide</span></a><a href="about.html"><span data-i18n="nav.about" >About</span></a></nav>
+  <label class="language-control"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h12M9 3v2M5 5c1 5 4 8 8 10M13 5c-1 5-4 8-8 10M14 21l4-11 4 11M15.5 17h5"/></svg><select id="languageSelect" aria-label="Website language" data-i18n-label="language.label"><option value="en" lang="en">English</option><option value="zh" lang="zh-CN">简体中文</option></select></label>
+</header>
+<main id="main" class="document-shell shell">
+<div class="document-heading"><p class="eyebrow" data-i18n="article.eyebrow">THE READING ROOM</p><h1 data-i18n="article.txt.heading">How to convert TXT to EPUB.</h1></div>
+<div class="article-actions"><a class="article-cta" href="index.html#converter" data-i18n="article.txt.action">Convert a TXT file ↗</a><a class="text-link" href="guide.html" data-i18n="article.back">All conversion guides ↗</a></div>
+<article class="document-content" data-i18n-html="article.txt.body"><p class="note">For your own writing, notes, and text you have permission to convert. No account or file upload is needed.</p>
+<p>A TXT file contains plain text. An EPUB adds book information, navigation, and a cover so the same writing is easier to read in an ebook reader. EpuBloom creates EPUB 3.3 files in your browser.</p>
+<h2>1. Prepare a readable text file</h2><p>Open the original in a text editor first. If letters look wrong, follow the <a href="fix-text-encoding.html">text encoding guide</a> before converting. UTF-8 is a useful format for a new copy.</p>
+<p>Put the title and author near the top. EpuBloom checks the first 20 lines for these English headers (case-insensitive), as well as Chinese title and author markers:</p>
+<pre>Title: The Little Journey
+Author: EpuBloom
+
+Chapter 1 — A quiet morning
+The notebook was still empty.
+
+Chapter 2 — Along the river
+A little wandering brought a fresh perspective.</pre>
+<h2>2. Put chapter headings on separate lines</h2><p>Headings starting with <code>Chapter </code>, <code>CHAPTER </code>, or <code># </code> are recognized, along with numbered Chinese headings such as 第一章. Avoid using these patterns for ordinary body text.</p><p>Recognized headings become table-of-contents entries. If there are no headings, the text goes into a default chapter. Title lines and introductions may remain in the body, so check the opening pages.</p>
+<h2>3. Choose your TXT and check book details</h2><p>Open the <a href="index.html#converter">converter</a> and select the .txt file. Expand “Book details” to edit the detected title and author. Set the book language to <code>en</code> for English or <code>zh</code> for Chinese. This describes the book, independently of the website’s language switch.</p><p>You can also enter a description, publisher, identifier, publication date, rights statement, and subjects. These are optional; an identifier does not need to be an ISBN.</p>
+<h2>4. Add a cover and download</h2><p>Choose a cover image if you have one. JPEG or PNG is a practical choice for reader compatibility. Without a cover, EpuBloom generates a simple SVG cover from the title and author.</p><p>Click “Convert to EPUB,” then download the result. Open it in your intended reader and check the cover, table of contents, chapter order, and text. Keep the source TXT: conversion does not proofread your writing or guarantee identical layout in every reader.</p>
+<h2>Try it with a short sample</h2><p><a href="examples/sample-en.txt" data-sample-link download>Download our sample TXT</a> before converting a long manuscript. If you need to get text back out of an ebook, see <a href="epub-to-txt.html">EPUB to TXT</a>. The <a href="guide.html">full guide</a> covers file size, browser requirements, and common problems.</p></article>
+</main>
+<footer class="site-footer shell"><div><a class="footer-brand" href="index.html">EpuBloom.</a><p data-i18n="footer.tagline" >A little less formatting. A little more reading.</p></div><nav aria-label="Footer navigation" data-i18n-label="nav.footer"><a href="guide.html"><span data-i18n="nav.guide" >Guide</span></a><a href="contact.html"><span data-i18n="nav.contact" >Contact</span></a><a href="privacy.html"><span data-i18n="nav.privacy" >Privacy</span></a><a href="https://github.com/ficbase/transmute-web">GitHub ↗</a></nav><p class="footer-credit"><span data-i18n="footer.powered" >Built with</span> <a href="https://github.com/ficbase/transmute">Transmute</a> · <span data-i18n="footer.local" >Made to stay on your device</span></p></footer>
+</body></html>

@@ -1,5 +1,8 @@
 """Exercise public packaging and dependency cache invalidation without WASM tooling."""
 import hashlib
+import json
+import re
+import xml.etree.ElementTree as ET
 import os
 from pathlib import Path
 import shutil
@@ -15,20 +18,27 @@ class PrepareSiteTests(unittest.TestCase):
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
         (self.root / 'scripts').mkdir()
-        shutil.copy2(Path(__file__).resolve().parents[1] / 'scripts/prepare-site.py', self.root / 'scripts/prepare-site.py')
-        for page in ('index.html', 'guide.html', 'about.html', 'contact.html', 'privacy.html'):
-            (self.root / page).write_text('<head><!-- site-metadata --><link href="site.css"><link href="favicon.svg"><script src="converter.js"></script><script src="i18n.js"></script></head>')
-        for name, text in {'site.css': 'body { color: green; }', 'favicon.svg': '<svg/>', 'i18n.js': 'export function t() {}', 'converter.js': "import './i18n.js'; import './pkg/transmute_web.js';"}.items():
+        repo = Path(__file__).resolve().parents[1]
+        for script in ('prepare-site.py', 'site_html.py'):
+            shutil.copy2(repo / 'scripts' / script, self.root / 'scripts' / script)
+        self.pages = ('index.html', 'guide.html', 'about.html', 'contact.html', 'privacy.html',
+                      'txt-to-epub.html', 'epub-to-txt.html', 'fix-text-encoding.html')
+        for page in self.pages:
+            shutil.copy2(repo / page, self.root / page)
+        shutil.copy2(repo / 'i18n.js', self.root / 'i18n.js')
+        for name, text in {'site.css': 'body { color: green; }', 'favicon.svg': '<svg/>',
+                           'converter.js': "import './i18n.js'; import './pkg/transmute_web.js';"}.items():
             (self.root / name).write_text(text)
         (self.root / 'pkg').mkdir()
         (self.root / 'pkg/transmute_web.js').write_text("new URL('transmute_web_bg.wasm', import.meta.url)")
         (self.root / 'pkg/transmute_web_bg.wasm').write_bytes(b'test-wasm')
         (self.root / 'examples').mkdir()
-        (self.root / 'examples/sample.txt').write_text('sample')
+        (self.root / 'examples/sample.txt').write_text('示例')
+        (self.root / 'examples/sample-en.txt').write_text('sample')
         (self.root / '.key').write_text('private-test-fixture')
 
-    def build(self, publisher=''):
-        environment = dict(os.environ, SITE_URL='https://epubloom.com/', ADSENSE_PUBLISHER_ID=publisher)
+    def build(self, publisher='', site_url='https://epubloom.com/'):
+        environment = dict(os.environ, SITE_URL=site_url, ADSENSE_PUBLISHER_ID=publisher)
         subprocess.run([sys.executable, str(self.root / 'scripts/prepare-site.py')], env=environment, check=True, capture_output=True)
         return self.root / 'dist'
 
@@ -40,12 +50,12 @@ class PrepareSiteTests(unittest.TestCase):
         output = self.build('ca-pub-1234567890123456')
         public = {str(path.relative_to(output)) for path in output.rglob('*') if path.is_file()}
         self.assertEqual(public, {
-            'index.html', 'guide.html', 'about.html', 'contact.html', 'privacy.html',
-            'site.css', 'favicon.svg', 'converter.js', 'i18n.js', 'examples/sample.txt',
+            *self.pages, *('zh/' + page for page in self.pages),
+            'site.css', 'favicon.svg', 'converter.js', 'i18n.js', 'examples/sample.txt', 'examples/sample-en.txt',
             'pkg/transmute_web.js', 'pkg/transmute_web_bg.wasm', 'robots.txt',
             'sitemap.xml', '.nojekyll', 'ads.txt',
         })
-        for page in ('index.html', 'guide.html', 'about.html', 'contact.html', 'privacy.html'):
+        for page in (*self.pages, *('zh/' + p for p in self.pages)):
             head = (output / page).read_text().split('</head>')[0]
             self.assertIn('google-adsense-account', head)
             self.assertEqual(head.count('adsbygoogle.js?client=ca-pub-1234567890123456'), 1)
@@ -64,7 +74,8 @@ class PrepareSiteTests(unittest.TestCase):
         first_css = self.version(output / 'site.css')
         self.assertIn(f"./i18n.js?v={self.version(output / 'i18n.js')}", (output / 'converter.js').read_text())
         self.assertIn(f"transmute_web_bg.wasm?v={self.version(output / 'pkg/transmute_web_bg.wasm')}", (output / 'pkg/transmute_web.js').read_text())
-        (self.root / 'i18n.js').write_text('export function t() { return "new translation"; }')
+        translation = self.root / 'i18n.js'
+        translation.write_text(translation.read_text().replace('Free TXT to EPUB', 'Updated free TXT to EPUB', 1))
         (self.root / 'pkg/transmute_web_bg.wasm').write_bytes(b'new-test-wasm')
         self.build()
         self.assertNotEqual(first_converter, self.version(output / 'converter.js'))
@@ -72,6 +83,39 @@ class PrepareSiteTests(unittest.TestCase):
         self.assertEqual(first_css, self.version(output / 'site.css'))
         self.assertIn(f'converter.js?v={self.version(output / "converter.js")}', (output / 'index.html').read_text())
         self.assertIn(f'./pkg/transmute_web.js?v={self.version(output / "pkg/transmute_web.js")}', (output / 'converter.js').read_text())
+
+    def test_localized_static_pages_have_consistent_search_metadata(self):
+        for site_url in ('https://epubloom.com/', 'https://ficbase.github.io/transmute-web/'):
+            output = self.build(site_url=site_url)
+            locations = {node.text for node in ET.parse(output / 'sitemap.xml').findall('.//{*}loc')}
+            self.assertEqual(len(locations), 16)
+            titles = set()
+            for language, prefix in (('en', ''), ('zh', 'zh/')):
+                for page in self.pages:
+                    path = prefix + ('' if page == 'index.html' else page)
+                    canonical = site_url + path
+                    source = (output / (prefix + page)).read_text()
+                    self.assertIn(canonical, locations)
+                    self.assertIn(f'<link rel="canonical" href="{canonical}">', source)
+                    self.assertIn('hreflang="en"', source)
+                    self.assertIn('hreflang="zh-Hans"', source)
+                    self.assertIn('hreflang="x-default"', source)
+                    self.assertEqual(source.count('<h1 '), 1)
+                    self.assertIn(f'data-language="{language}"', source)
+                    title = re.search(r'<title[^>]*>(.*?)</title>', source).group(1)
+                    self.assertNotIn(title, titles)
+                    titles.add(title)
+                    schema = json.loads(re.search(r'id="site-structured-data">(.*?)</script>', source).group(1))
+                    webpage = next(item for item in schema['@graph'] if item['@type'] == 'WebPage')
+                    self.assertEqual(webpage['url'], canonical)
+                    self.assertEqual(webpage['inLanguage'], 'zh-CN' if language == 'zh' else 'en')
+                    self.assertIn(f'Sitemap: {site_url}sitemap.xml', (output / 'robots.txt').read_text())
+            chinese = (output / 'zh/txt-to-epub.html').read_text()
+            self.assertIn('如何将 TXT 转为 EPUB', chinese)
+            self.assertIn('章节标题独立成行', chinese)
+            base = '/' + site_url.split('/', 3)[3]
+            self.assertIn(f'href="{base}zh/#converter"', chinese)
+            self.assertIn(f'href="{base}site.css?v=', chinese)
 
 
 if __name__ == '__main__':

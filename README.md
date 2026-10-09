@@ -68,6 +68,16 @@ PR 会检查构建；推送至 main 分支后 GitHub Actions 自动构建 WASM�
 
 继续使用 GitHub Pages 也可以绑定自己的域名：先在仓库 Pages 设置中配置 Custom domain 与 DNS，再把仓库变量 `SITE_URL` 设置为正式 HTTPS 根地址。修改变量后重新运行部署工作流。GitHub Pages 用途受 [GitHub 服务条款](https://docs.github.com/en/site-policy/github-terms/github-terms-for-additional-products-and-features#pages) 约束；用于广告运营前应确认用途符合平台要求。
 
+### 搜索收录与内容维护
+
+正式构建为 8 个页面生成英文版本与 `/zh/` 简体中文版本，共 16 个可独立访问的页面。正文在打包时写入 HTML，不需要搜索引擎执行语言切换；每页包含自己的 canonical、双向 hreflang（en / zh-Hans / x-default）、分享标题与描述，以及与可见内容一致的 JSON-LD。首页保持英文默认，已保存的语言选择会保留；切换时同步地址与内部链接，并保留当前文件和转换结果。
+
+- 实用指南：`txt-to-epub.html`、`epub-to-txt.html`、`fix-text-encoding.html`，从首页和完整指南链接进入。
+- `i18n.js` 顶部的 `messages` 保持标准 JSON 对象，打包脚本和浏览器共用这份文案。新增页面时同时更新 `PAGES`、浏览器 `pageNames`、中英文文案及内部链接。
+- 所有页面使用完整、真实的功能说明，不填写虚构评分或评论。WebApplication 数据描述免费工具，并不保证获得 Google 富媒体结果。
+- 在 Google Search Console 验证 `epubloom.com` 网域资源后，提交 `https://epubloom.com/sitemap.xml`。保留验证用 DNS TXT 记录。站点地图和提交收录请求均不保证索引或排名。
+- 后续根据 Search Console 的真实展示、点击与搜索词完善内容；更改内容后重新打包并部署，避免只改浏览器文案而未更新静态页面。
+
 ### Google AdSense 申请与接入
 
 正式网站已配置 AdSense 连接代码，实际展示需等待网站审核通过及账号配置完成。补充说明页面不保证通过审核；Google 评估原创内容、使用体验及政策符合情况，见 [AdSense 资格要求](https://support.google.com/adsense/answer/9724) 和 [网站准备要求](https://support.google.com/adsense/answer/7299563)。应先确认真实文件转换可用、指南准确、正式域名和公开联系渠道正常。

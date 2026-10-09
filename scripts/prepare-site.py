@@ -2,6 +2,7 @@
 """Package only public assets; optionally connect the site to AdSense."""
 import html
 import hashlib
+from site_html import page_path, render_page, translations
 import os
 from pathlib import Path
 import re
@@ -10,7 +11,8 @@ from urllib.parse import urlsplit
 from xml.sax.saxutils import escape
 
 ROOT = Path(__file__).resolve().parents[1]
-PAGES = ("index.html", "guide.html", "about.html", "contact.html", "privacy.html")
+PAGES = ("index.html", "guide.html", "about.html", "contact.html", "privacy.html",
+         "txt-to-epub.html", "epub-to-txt.html", "fix-text-encoding.html")
 
 
 def main():
@@ -52,22 +54,24 @@ def main():
     for name in ("i18n.js", "pkg/transmute_web.js"):
         converter = converter.replace(f"'./{name}'", f"'./{name}?v={versions[name]}'")
     write_asset("converter.js", converter.encode("utf-8"))
+    messages = translations((ROOT / "i18n.js").read_text(encoding="utf-8"))
     for page in PAGES:
-        canonical = site_url if page == "index.html" else site_url + page
-        tags = f'<link rel="canonical" href="{html.escape(canonical, quote=True)}">'
-        if publisher:
-            tags += f'\n  <meta name="google-adsense-account" content="{publisher}">'
-            tags += (f'\n  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={publisher}"'
-                     ' crossorigin="anonymous"></script>')
         source = (ROOT / page).read_text(encoding="utf-8")
-        for name in ("site.css", "favicon.svg", "i18n.js", "converter.js"):
-            source = source.replace(f'="{name}"', f'="{name}?v={versions[name]}"')
         if source.count("<!-- site-metadata -->") != 1:
             raise SystemExit(f"Missing or duplicate site metadata marker in {page}")
-        (output / page).write_text(source.replace("<!-- site-metadata -->", tags), encoding="utf-8")
+        tags = ''
+        if publisher:
+            tags = f'<meta name="google-adsense-account" content="{publisher}">'
+            tags += (f'\n  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={publisher}"'
+                     ' crossorigin="anonymous"></script>')
+        source = source.replace("<!-- site-metadata -->", tags)
+        for language in ("en", "zh"):
+            target = output / (("zh/" if language == "zh" else "") + page)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(render_page(source, page, language, messages, site_url, PAGES, versions), encoding="utf-8")
     shutil.copytree(ROOT / "examples", output / "examples")
     (output / ".nojekyll").touch()
-    locations = [site_url if p == "index.html" else site_url + p for p in PAGES]
+    locations = [site_url + page_path(page, language) for language in ("en", "zh") for page in PAGES]
     entries = "".join(f"  <url><loc>{escape(url)}</loc></url>\n" for url in locations)
     (output / "sitemap.xml").write_text(
         '<?xml version="1.0" encoding="UTF-8"?>\n'
