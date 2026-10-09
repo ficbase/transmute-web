@@ -95,7 +95,7 @@ def render_page(source, page, language, messages, site_url, pages, versions):
                 text = strings[node.attrs[attr]]
                 node.children = Document(text).root.children if rich else [escape(text)]
         for attr, target in [('data-i18n-content', 'content'), ('data-i18n-label', 'aria-label'),
-                             ('data-i18n-placeholder', 'placeholder')]:
+                             ('data-i18n-placeholder', 'placeholder'), ('data-i18n-alt', 'alt')]:
             if attr in node.attrs:
                 node.attrs[target] = strings[node.attrs[attr]]
         for child in node.children:
