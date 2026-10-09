@@ -137,6 +137,7 @@ function updateUI() {
   exportNameRow.hidden = !hasFile;
   exportName.disabled = state.busy;
   renderExportName();
+  $('#converterOptions').hidden = !isTxt;
   coverRow.style.display = isTxt ? 'grid' : 'none';
   metaSection.style.display = isTxt ? 'block' : 'none';
   convertBtn.disabled = !state.file || state.busy || state.coverProcessing || state.loadFailed;
