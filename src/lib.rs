@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use std::io::{self, Read, Write};
 use std::sync::atomic::{AtomicU64, Ordering};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 use zip::read::ZipArchive;
@@ -59,7 +59,7 @@ pub struct CoverImage {
     pub file_name: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Chapter {
     pub title: String,
     pub body: String,
@@ -160,6 +160,48 @@ pub fn detect_author(txt: &str) -> String {
 pub fn init_panic_hook() {
     #[cfg(target_arch = "wasm32")]
     console_error_panic_hook::set_once();
+}
+
+// Reader exports keep EPUB XML and binary resources separate. The browser
+// resolves the package's actual paths and renders a safe subset of its markup.
+const READER_FILE_LIMIT: usize = 50 * 1024 * 1024;
+const READER_ENTRY_LIMIT: u64 = 8 * 1024 * 1024;
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+pub fn reader_entries(data: &[u8]) -> Result<String, String> {
+    if data.len() > READER_FILE_LIMIT { return Err("READER_SIZE".into()); }
+    let mut zip = ZipArchive::new(io::Cursor::new(data)).map_err(|_| "READER_EPUB")?;
+    if zip.len() > 20_000 { return Err("READER_SIZE".into()); }
+    let mut total = 0u64;
+    for index in 0..zip.len() {
+        total = total.saturating_add(zip.by_index(index).map_err(|_| "READER_EPUB")?.size());
+        if total > 256 * 1024 * 1024 { return Err("READER_SIZE".into()); }
+    }
+    serde_json::to_string(&zip.file_names().collect::<Vec<_>>()).map_err(|_| "READER_EPUB".into())
+}
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+pub fn reader_entry(data: &[u8], path: &str) -> Result<Vec<u8>, String> {
+    if data.len() > READER_FILE_LIMIT { return Err("READER_SIZE".into()); }
+    let mut zip = ZipArchive::new(io::Cursor::new(data)).map_err(|_| "READER_EPUB")?;
+    let file = zip.by_name(path).map_err(|_| "READER_EPUB")?;
+    if file.size() > READER_ENTRY_LIMIT { return Err("READER_SIZE".into()); }
+    let mut bytes = Vec::new();
+    file.take(READER_ENTRY_LIMIT + 1).read_to_end(&mut bytes).map_err(|_| "READER_EPUB")?;
+    if bytes.len() as u64 > READER_ENTRY_LIMIT { return Err("READER_SIZE".into()); }
+    Ok(bytes)
+}
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+pub fn reader_text(text: &str, language: &str) -> Result<String, String> {
+    if text.len() > READER_FILE_LIMIT { return Err("READER_SIZE".into()); }
+    if text.trim().is_empty() { return Err("READER_EMPTY".into()); }
+    serde_json::to_string(&serde_json::json!({
+        "title": extract_title(text).unwrap_or_default(),
+        "author": extract_author(text),
+        "language": language,
+        "chapters": split_into_chapters(text, language),
+    })).map_err(|_| "READER_TEXT".into())
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
@@ -953,6 +995,39 @@ fn strip_html(html: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reader_preserves_text_chapters_metadata_and_literal_markup() {
+        assert_eq!(reader_text(" \n\r\n", "en"), Err("READER_EMPTY".into()));
+        let book: serde_json::Value = serde_json::from_str(&reader_text(
+            "《河岸》\n作者：小林\n\n第一章 清晨\n<script>literal text</script>\n\n第二章 黄昏\n你好，世界。", "zh-CN"
+        ).unwrap()).unwrap();
+        assert_eq!(book["title"], "河岸");
+        assert_eq!(book["author"], "小林");
+        assert_eq!(book["chapters"].as_array().unwrap().len(), 2);
+        assert_eq!(book["chapters"][0]["title"], "第一章 清晨");
+        assert!(book["chapters"][0]["body"].as_str().unwrap().contains("<script>literal text</script>"));
+        assert_eq!(book["chapters"][1]["body"], "你好，世界。");
+    }
+
+    #[test]
+    fn reader_archive_preserves_paths_and_binary_resources_and_rejects_bad_entries() {
+        let mut zip = ZipWriter::new(io::Cursor::new(Vec::new()));
+        let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+        zip.start_file("OPS/Book/chapter 1.xhtml", options).unwrap();
+        zip.write_all(b"<body>one</body>").unwrap();
+        zip.start_file("OPS/Images/picture.png", options).unwrap();
+        zip.write_all(&[0, 1, 255, 200]).unwrap();
+        zip.start_file("too-large.xhtml", options).unwrap();
+        zip.write_all(&vec![b'x'; READER_ENTRY_LIMIT as usize + 1]).unwrap();
+        let bytes = zip.finish().unwrap().into_inner();
+        let paths: Vec<String> = serde_json::from_str(&reader_entries(&bytes).unwrap()).unwrap();
+        assert!(paths.contains(&"OPS/Book/chapter 1.xhtml".to_string()));
+        assert_eq!(reader_entry(&bytes, "OPS/Images/picture.png").unwrap(), vec![0, 1, 255, 200]);
+        assert_eq!(reader_entry(&bytes, "too-large.xhtml"), Err("READER_SIZE".into()));
+        assert!(reader_entry(&bytes, "missing.xhtml").is_err());
+        assert!(reader_entries(b"invalid EPUB").is_err());
+    }
 
     #[test]
     fn txt_encodings_preserve_text_and_line_endings() {

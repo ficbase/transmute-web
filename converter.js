@@ -1,5 +1,6 @@
 import { t, getLanguage, createDisclosure } from './i18n.js';
 import { createCoverEditor, drawCoverText } from './cover-editor.js';
+import { createReader } from './reader.js';
 import init, { txt_to_epub, epub_to_txt, encode_text, init_panic_hook, set_timestamp, detect_title, detect_author } from './pkg/transmute_web.js';
 
 // ── State ──────────────────────────────────────────────────────
@@ -80,6 +81,23 @@ const coverEditor = createCoverEditor({
   onChange: () => refreshCoverText(),
 });
 $('#coverPreview').addEventListener('click', () => coverEditor.open());
+const reader = createReader({
+  getSource: async () => {
+    const file = state.file;
+    if (!file) throw new Error('READER_EMPTY');
+    if (file.size > 50 * 1024 * 1024) throw new Error('READER_SIZE');
+    await wasmReady;
+    await state.metadataReady;
+    await state.encodingReady;
+    if (state.file !== file) throw new Error('READER_CHANGED');
+    const buffer = await file.arrayBuffer();
+    return {
+      file, bytes: new Uint8Array(buffer),
+      ...(state.mode === 'txt2epub' ? { text: decodeBuffer(buffer, state.sourceEncoding || 'utf-8', true) } : {}),
+      title: metaTitle.value, author: metaAuthor.value, language: metaLang.value,
+    };
+  },
+});
 
 // ── Helpers ────────────────────────────────────────────────────
 function renderStatus() {
@@ -132,6 +150,8 @@ function updateUI() {
   const hasFile = !!state.file;
   $('.converter-card').classList.toggle('has-file', hasFile);
   $('#converterActions').hidden = !hasFile;
+  $('#readBtn').hidden = !hasFile;
+  $('#readBtn').disabled = state.busy || state.loadFailed;
   fileRow.style.display = hasFile ? 'flex' : 'none';
   dropzone.style.display = hasFile ? 'none' : 'block';
 
@@ -178,6 +198,7 @@ function setFile(file) {
   const ext = getExt(file.name);
   const mode = ext === 'txt' ? 'txt2epub' : ext === 'epub' ? 'epub2txt' : null;
   if (!mode) { setStatus('status.unsupported', 'error'); return; }
+  reader.reset();
   state.file = file;
   state.mode = mode;
   state.result = null;
@@ -236,6 +257,7 @@ fileInput.addEventListener('change', () => {
 });
 fileRemove.addEventListener('click', () => {
   if (state.busy) return;
+  reader.reset();
   state.file = null;
   state.mode = null;
   state.result = null;
