@@ -89,7 +89,9 @@
 </main><footer class="site-footer shell"><div><a class="footer-brand" href="index.html">EpuBloom.</a><p data-i18n="footer.tagline" >A little less formatting. A little more reading.</p></div><nav aria-label="Footer navigation" data-i18n-label="nav.footer"><a href="guide.html"><span data-i18n="nav.guide" >Guide</span></a><a href="contact.html"><span data-i18n="nav.contact" >Contact</span></a><a href="privacy.html"><span data-i18n="nav.privacy" >Privacy</span></a><a href="https://github.com/ficbase/transmute-web">GitHub ↗</a></nav><p class="footer-credit"><span data-i18n="footer.powered" >Built with</span> <a href="https://github.com/ficbase/transmute">Transmute</a> · <span data-i18n="footer.local" >Made to stay on your device</span></p></footer>
 <dialog class="reader-dialog" id="onlineReader" aria-labelledby="readerBookTitle" data-theme="paper">
  <div class="reader-shell" id="readerShell">
-  <header class="reader-toolbar">
+  <button type="button" class="reader-edge reader-top-edge" id="readerToolbarReveal" aria-label="Show title bar" data-i18n-label="reader.showToolbar" aria-controls="readerToolbar" hidden></button>
+  <button type="button" class="reader-edge reader-right-edge" id="readerTocReveal" aria-label="Show chapter contents" data-i18n-label="reader.showToc" aria-controls="readerToc"></button>
+  <header class="reader-toolbar" id="readerToolbar">
    <div class="reader-toolbar-panel" id="readerToolbarPanel"><div class="reader-toolbar-content">
     <div class="reader-book"><span class="reader-eyebrow" data-i18n="reader.title">Online reader</span><h2 id="readerBookTitle" data-i18n="reader.title">Online reader</h2><p id="readerBookAuthor"></p></div>
     <div class="reader-tools">
@@ -100,7 +102,7 @@
     </div>
    </div></div>
     <div class="reader-toolbar-actions">
-      <button type="button" id="readerToolbarToggle" aria-label="Collapse title bar" data-i18n-label="reader.collapseToolbar" aria-expanded="true" aria-controls="readerToolbarPanel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 14 5-5 5 5"/></svg></button>
+      <button type="button" id="readerToolbarToggle" aria-label="Auto-hide title bar" data-i18n-label="reader.collapseToolbar" aria-expanded="true" aria-controls="readerToolbar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 14 5-5 5 5"/></svg></button>
       <button type="button" id="readerClose" aria-label="Exit reading mode" data-i18n-label="reader.close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
     </div>
   </header>
