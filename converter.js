@@ -1,4 +1,5 @@
 import { t, getLanguage, createDisclosure } from './i18n.js';
+import { createCoverEditor, drawCoverText } from './cover-editor.js';
 import init, { txt_to_epub, epub_to_txt, encode_text, init_panic_hook, set_timestamp, detect_title, detect_author } from './pkg/transmute_web.js';
 
 // ── State ──────────────────────────────────────────────────────
@@ -13,6 +14,8 @@ const state = {
   coverPendingFit: null,
   coverTextSnapshot: null,
   coverTextApplied: false,
+  coverBase: null,
+  exportNameEdited: false,
   result: null,
   mode: null,
   busy: false,
@@ -73,6 +76,11 @@ const metaIdentifier = $('#metaIdentifier');
 const metaDate = $('#metaDate');
 const metaRights = $('#metaRights');
 const metaSubjects = $('#metaSubjects');
+const coverEditor = createCoverEditor({
+  getText: () => ({ enabled: coverTextToggle.checked, title: metaTitle.value, author: metaAuthor.value }),
+  onChange: () => refreshCoverText(),
+});
+$('#coverPreview').addEventListener('click', () => coverEditor.open());
 
 // ── Helpers ────────────────────────────────────────────────────
 function renderStatus() {
@@ -94,7 +102,7 @@ function getExt(name) {
 }
 
 function outputFilename(extension) {
-  const fallback = state.file?.name.replace(/\.(txt|epub)$/i, '') || 'book';
+  const fallback = defaultExportName();
   let base = (exportName.value.trim() || fallback).replace(/\.(txt|epub)$/i, '')
     .replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g, '_').replace(/[. ]+$/g, '');
   base = [...base].slice(0, 180).join('').replace(/[. ]+$/g, '') || 'book';
@@ -107,7 +115,19 @@ function renderExportName() {
   $('#exportExtension').textContent = '.' + extension;
   $('#exportNameHint').textContent = t('export.preview', { name: outputFilename(extension) });
 }
-exportName.addEventListener('input', renderExportName);
+function defaultExportName() {
+  return (state.mode === 'txt2epub' && metaTitle.value.trim()) || state.file?.name.replace(/\.(txt|epub)$/i, '') || 'book';
+}
+function syncExportName() {
+  if (!state.exportNameEdited) exportName.value = defaultExportName();
+  renderExportName();
+}
+exportName.addEventListener('input', () => {
+  state.exportNameEdited = !!exportName.value.trim();
+  renderExportName();
+});
+exportName.addEventListener('blur', syncExportName);
+metaTitle.addEventListener('input', syncExportName);
 
 function updateUI() {
   const hasFile = !!state.file;
@@ -135,6 +155,8 @@ function updateUI() {
   coverZone.disabled = state.busy || state.coverProcessing;
   coverRemove.disabled = state.busy || state.coverProcessing;
   coverTextToggle.disabled = state.busy || state.coverProcessing;
+  $('#coverPreview').disabled = !state.cover || state.busy;
+  coverEditor.setBusy(state.busy);
   coverRow.setAttribute('aria-busy', String(state.coverProcessing));
   $('#coverChooseLabel').textContent = t(state.coverProcessing ? 'cover.processing' : state.cover ? 'cover.change' : 'cover.choose');
   coverFit.querySelectorAll('button').forEach(button => {
@@ -158,6 +180,7 @@ function setFile(file) {
   state.mode = mode;
   state.result = null;
   clearCover();
+  state.exportNameEdited = false;
   exportName.value = file.name.replace(/\.(txt|epub)$/i, '');
   state.sourceEncoding = null;
   state.encodingInvalid = false;
@@ -246,8 +269,9 @@ function clearCover() {
   clearTimeout(coverTextTimer);
   if (state.coverPreviewUrl) URL.revokeObjectURL(state.coverPreviewUrl);
   Object.assign(state, { cover: null, coverSource: null, coverPreviewUrl: null, coverProcessing: false, coverFit: 'contain',
-    coverPendingSource: null, coverPendingFit: null, coverTextSnapshot: null, coverTextApplied: false });
+    coverPendingSource: null, coverPendingFit: null, coverTextSnapshot: null, coverTextApplied: false, coverBase: null });
   coverTextToggle.checked = false;
+  coverEditor.reset();
   coverTextOptions.hidden = true;
   coverInput.value = '';
   coverImage.removeAttribute('src');
@@ -271,43 +295,54 @@ async function prepareCover(file, fit) {
   const title = metaTitle.value.trim();
   const author = metaAuthor.value.trim();
   const snapshot = coverTextSignature();
+  const settings = coverEditor.snapshot();
   coverDimensions.hidden = false;
   updateUI();
   try {
-    const image = new Image();
-    await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = reject; image.src = originalUrl; });
-    if (request !== coverRequest) return;
-    if (!image.naturalWidth || !image.naturalHeight || image.naturalWidth * image.naturalHeight > 40000000) throw new Error('IMAGE_SIZE');
+    let base = state.coverSource === file && state.coverFit === fit ? state.coverBase : null;
+    if (!base) {
+      const image = new Image();
+      await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = reject; image.src = originalUrl; });
+      if (request !== coverRequest) return;
+      if (!image.naturalWidth || !image.naturalHeight || image.naturalWidth * image.naturalHeight > 40000000) throw new Error('IMAGE_SIZE');
+      base = document.createElement('canvas');
+      base.width = 1200;
+      base.height = 1800;
+      const ctx = base.getContext('2d');
+      if (!ctx) throw new Error('CANVAS_UNAVAILABLE');
+      ctx.fillStyle = '#f2efe7';
+      ctx.fillRect(0, 0, base.width, base.height);
+      ctx.imageSmoothingQuality = 'high';
+      const fillScale = Math.max(base.width / image.naturalWidth, base.height / image.naturalHeight);
+      function draw(scale, bleed = 0) {
+        const width = image.naturalWidth * scale + bleed * 2;
+        const height = image.naturalHeight * scale + bleed * 2;
+        ctx.drawImage(image, (base.width - width) / 2, (base.height - height) / 2, width, height);
+      }
+      if (fit === 'contain') {
+        ctx.save();
+        ctx.filter = 'blur(32px)';
+        draw(fillScale, 80);
+        ctx.restore();
+        ctx.fillStyle = '#f2efe730';
+        ctx.fillRect(0, 0, base.width, base.height);
+        draw(Math.min(base.width / image.naturalWidth, base.height / image.naturalHeight));
+      } else draw(fillScale);
+    }
     const canvas = document.createElement('canvas');
     canvas.width = 1200;
     canvas.height = 1800;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('CANVAS_UNAVAILABLE');
-    ctx.fillStyle = '#f2efe7';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.imageSmoothingQuality = 'high';
-    const fillScale = Math.max(canvas.width / image.naturalWidth, canvas.height / image.naturalHeight);
-    function draw(scale, bleed = 0) {
-      const width = image.naturalWidth * scale + bleed * 2;
-      const height = image.naturalHeight * scale + bleed * 2;
-      ctx.drawImage(image, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
-    }
-    if (fit === 'contain') {
-      ctx.save();
-      ctx.filter = 'blur(32px)';
-      draw(fillScale, 80);
-      ctx.restore();
-      ctx.fillStyle = '#f2efe730';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      draw(Math.min(canvas.width / image.naturalWidth, canvas.height / image.naturalHeight));
-    } else draw(fillScale);
-    if (overlay) drawCoverText(ctx, title, author);
+    ctx.drawImage(base, 0, 0);
+    if (overlay) drawCoverText(ctx, { title, author }, settings);
     const blob = await new Promise((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error('IMAGE_EXPORT')), 'image/jpeg', .92));
     if (request !== coverRequest) return;
     const previewUrl = URL.createObjectURL(blob);
     const previousUrl = state.coverPreviewUrl;
     Object.assign(state, { cover: new File([blob], 'cover.jpg', { type: 'image/jpeg' }), coverSource: file, coverFit: fit, coverPreviewUrl: previewUrl,
-      coverTextSnapshot: snapshot, coverTextApplied: overlay });
+      coverTextSnapshot: snapshot, coverTextApplied: overlay, coverBase: base });
+    coverEditor.setImage(base);
     coverImage.src = previewUrl;
     coverImage.hidden = false;
     coverPlaceholder.setAttribute('hidden', '');
@@ -339,13 +374,14 @@ async function prepareCover(file, fit) {
 }
 
 function coverTextSignature() {
-  return JSON.stringify(coverTextToggle.checked ? [true, metaTitle.value.trim(), metaAuthor.value.trim()] : [false]);
+  return JSON.stringify(coverTextToggle.checked ? [true, metaTitle.value.trim(), metaAuthor.value.trim(), coverEditor.snapshot()] : [false]);
 }
 
 function refreshCoverText() {
   const source = state.coverPendingSource || state.coverSource;
   const fit = state.coverPendingFit || state.coverFit;
   if (!source || state.busy) return;
+  coverEditor.render();
   clearTimeout(coverTextTimer);
   coverRequest++; // Edits invalidate any image still being prepared.
   state.coverProcessing = true;
@@ -358,62 +394,6 @@ coverTextToggle.addEventListener('change', refreshCoverText);
 for (const input of [metaTitle, metaAuthor]) input.addEventListener('input', () => {
   if (coverTextToggle.checked) refreshCoverText();
 });
-
-function drawCoverText(ctx, title, author) {
-  if (!title && !author) return;
-  const width = 1008;
-  const font = '"Songti SC", "Noto Serif CJK SC", Georgia, serif';
-  function layout(text, startSize, minSize, maxLines, weight) {
-    const normalized = Array.from(text.replace(/\s+/g, ' '));
-    const characters = normalized.slice(0, 600);
-    let lines, size;
-    for (size = startSize; size >= minSize; size -= 4) {
-      ctx.font = `${weight} ${size}px ${font}`;
-      lines = [];
-      let line = '';
-      for (const character of characters) {
-        if (line && ctx.measureText(line + character).width > width) {
-          const space = line.lastIndexOf(' ');
-          if (space > line.length / 2) { lines.push(line.slice(0, space)); line = line.slice(space + 1) + character; }
-          else { lines.push(line); line = character; }
-        } else line += character;
-      }
-      if (line) lines.push(line.trim());
-      if (lines.length <= maxLines) break;
-    }
-    size = Math.max(size, minSize);
-    ctx.font = `${weight} ${size}px ${font}`;
-    if (lines.length > maxLines || characters.length < normalized.length) {
-      lines = lines.slice(0, maxLines);
-      let last = lines.at(-1) || '';
-      while (last && ctx.measureText(last + '…').width > width) last = Array.from(last).slice(0, -1).join('');
-      lines[lines.length - 1] = last + '…';
-    }
-    return { lines, size, height: lines.length * size * 1.3 };
-  }
-  const bookTitle = layout(title, 84, 36, 4, 600);
-  const bookAuthor = layout(author, 40, 28, 2, 400);
-  const gap = title && author ? 34 : 0;
-  const blockHeight = bookTitle.height + bookAuthor.height + gap;
-  const top = 1800 - 140 - blockHeight;
-  const gradient = ctx.createLinearGradient(0, Math.max(0, top - 240), 0, 1800);
-  gradient.addColorStop(0, '#10201b00');
-  gradient.addColorStop(.55, '#10201bb8');
-  gradient.addColorStop(1, '#10201bf2');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, 1200, 1800);
-  ctx.fillStyle = '#fffefa';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
-  ctx.shadowColor = '#00000055';
-  ctx.shadowBlur = 6;
-  let y = top;
-  for (const [block, weight] of [[bookTitle, 600], [bookAuthor, 400]]) {
-    ctx.font = `${weight} ${block.size}px ${font}`;
-    for (const line of block.lines) { ctx.fillText(line, 600, y); y += block.size * 1.3; }
-    if (block === bookTitle) y += gap;
-  }
-}
 
 // ── Metadata editor ──────────────────────────────────────────────
 async function autoFillMeta(file) {
@@ -431,6 +411,7 @@ async function autoFillMeta(file) {
       const a = detect_author(txt);
       if (a) metaAuthor.value = a;
     }
+    syncExportName();
     if (coverTextToggle.checked) refreshCoverText();
   } catch (_) { /* ignore read errors */ }
 }

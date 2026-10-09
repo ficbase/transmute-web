@@ -27,7 +27,8 @@ class PrepareSiteTests(unittest.TestCase):
             shutil.copy2(repo / page, self.root / page)
         shutil.copy2(repo / 'i18n.js', self.root / 'i18n.js')
         for name, text in {'site.css': 'body { color: green; }', 'favicon.svg': '<svg/>',
-                           'converter.js': "import './i18n.js'; import './pkg/transmute_web.js';"}.items():
+                           'cover-editor.js': "import './i18n.js';",
+                           'converter.js': "import './i18n.js'; import './cover-editor.js'; import './pkg/transmute_web.js';"}.items():
             (self.root / name).write_text(text)
         (self.root / 'pkg').mkdir()
         (self.root / 'pkg/transmute_web.js').write_text("new URL('transmute_web_bg.wasm', import.meta.url)")
@@ -51,7 +52,7 @@ class PrepareSiteTests(unittest.TestCase):
         public = {str(path.relative_to(output)) for path in output.rglob('*') if path.is_file()}
         self.assertEqual(public, {
             *self.pages, *('zh/' + page for page in self.pages),
-            'site.css', 'favicon.svg', 'converter.js', 'i18n.js', 'examples/sample.txt', 'examples/sample-en.txt',
+            'site.css', 'favicon.svg', 'converter.js', 'cover-editor.js', 'i18n.js', 'examples/sample.txt', 'examples/sample-en.txt',
             'pkg/transmute_web.js', 'pkg/transmute_web_bg.wasm', 'robots.txt',
             'sitemap.xml', '.nojekyll', 'ads.txt',
         })
@@ -73,6 +74,8 @@ class PrepareSiteTests(unittest.TestCase):
         first_module = self.version(output / 'pkg/transmute_web.js')
         first_css = self.version(output / 'site.css')
         self.assertIn(f"./i18n.js?v={self.version(output / 'i18n.js')}", (output / 'converter.js').read_text())
+        self.assertIn(f"./i18n.js?v={self.version(output / 'i18n.js')}", (output / 'cover-editor.js').read_text())
+        self.assertIn(f"./cover-editor.js?v={self.version(output / 'cover-editor.js')}", (output / 'converter.js').read_text())
         self.assertIn(f"transmute_web_bg.wasm?v={self.version(output / 'pkg/transmute_web_bg.wasm')}", (output / 'pkg/transmute_web.js').read_text())
         translation = self.root / 'i18n.js'
         translation.write_text(translation.read_text().replace('Free TXT to EPUB', 'Updated free TXT to EPUB', 1))
@@ -83,6 +86,10 @@ class PrepareSiteTests(unittest.TestCase):
         self.assertEqual(first_css, self.version(output / 'site.css'))
         self.assertIn(f'converter.js?v={self.version(output / "converter.js")}', (output / 'index.html').read_text())
         self.assertIn(f'./pkg/transmute_web.js?v={self.version(output / "pkg/transmute_web.js")}', (output / 'converter.js').read_text())
+        previous_converter = self.version(output / 'converter.js')
+        (self.root / 'cover-editor.js').write_text("import './i18n.js'; // updated editor")
+        self.build()
+        self.assertNotEqual(previous_converter, self.version(output / 'converter.js'))
 
     def test_localized_static_pages_have_consistent_search_metadata(self):
         for site_url in ('https://epubloom.com/', 'https://ficbase.github.io/transmute-web/'):
