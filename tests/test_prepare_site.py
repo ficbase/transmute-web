@@ -45,11 +45,17 @@ class PrepareSiteTests(unittest.TestCase):
             'pkg/transmute_web.js', 'pkg/transmute_web_bg.wasm', 'robots.txt',
             'sitemap.xml', '.nojekyll', 'ads.txt',
         })
-        self.assertIn('google-adsense-account', (output / 'index.html').read_text())
+        for page in ('index.html', 'guide.html', 'about.html', 'contact.html', 'privacy.html'):
+            head = (output / page).read_text().split('</head>')[0]
+            self.assertIn('google-adsense-account', head)
+            self.assertEqual(head.count('adsbygoogle.js?client=ca-pub-1234567890123456'), 1)
+            self.assertIn('<script async src="https://pagead2.googlesyndication.com/', head)
+            self.assertIn('crossorigin="anonymous"', head)
         self.assertIn('pub-1234567890123456', (output / 'ads.txt').read_text())
         self.build()
         self.assertFalse((output / 'ads.txt').exists())
         self.assertNotIn('google-adsense-account', (output / 'index.html').read_text())
+        self.assertNotIn('adsbygoogle.js', (output / 'index.html').read_text())
 
     def test_translation_and_wasm_changes_propagate_through_module_versions(self):
         output = self.build()

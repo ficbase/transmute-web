@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Package only public assets; optionally add AdSense ownership verification."""
+"""Package only public assets; optionally connect the site to AdSense."""
 import html
 import hashlib
 import os
@@ -57,6 +57,8 @@ def main():
         tags = f'<link rel="canonical" href="{html.escape(canonical, quote=True)}">'
         if publisher:
             tags += f'\n  <meta name="google-adsense-account" content="{publisher}">'
+            tags += (f'\n  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={publisher}"'
+                     ' crossorigin="anonymous"></script>')
         source = (ROOT / page).read_text(encoding="utf-8")
         for name in ("site.css", "favicon.svg", "i18n.js", "converter.js"):
             source = source.replace(f'="{name}"', f'="{name}?v={versions[name]}"')

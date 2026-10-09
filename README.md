@@ -70,7 +70,7 @@ PR 会检查构建；推送至 main 分支后 GitHub Actions 自动构建 WASM�
 
 ### Google AdSense 申请与接入
 
-当前没有启用广告。补充说明页面不保证通过审核；Google 评估原创内容、使用体验及政策符合情况，见 [AdSense 资格要求](https://support.google.com/adsense/answer/9724) 和 [网站准备要求](https://support.google.com/adsense/answer/7299563)。应先确认真实文件转换可用、指南准确、正式域名和公开联系渠道正常。
+正式网站已配置 AdSense 连接代码，实际展示需等待网站审核通过及账号配置完成。补充说明页面不保证通过审核；Google 评估原创内容、使用体验及政策符合情况，见 [AdSense 资格要求](https://support.google.com/adsense/answer/9724) 和 [网站准备要求](https://support.google.com/adsense/answer/7299563)。应先确认真实文件转换可用、指南准确、正式域名和公开联系渠道正常。
 
 1. 通过 [AdSense 官网](https://adsense.google.com/start/) 注册自己的账号，按真实身份、国家或地区与收款资料填写；在 Sites 中添加正式网站。
 2. 获取账号的发布商 ID（`ca-pub-` 加 16 位数字）。这个 ID 是公开配置，不是密码。
@@ -80,13 +80,13 @@ PR 会检查构建；推送至 main 分支后 GitHub Actions 自动构建 WASM�
    SITE_URL=https://your-domain.example/ ADSENSE_PUBLISHER_ID=ca-pub-1234567890123456 python3 scripts/prepare-site.py
    ```
 
-   上面的域名和 ID 仅为格式示例，必须替换。脚本在页面加入 `google-adsense-account` 所有权验证元标签，并生成 `dist/ads.txt`，不会加载广告脚本。若使用 GitHub Pages，可设置同名仓库变量后重新部署。仅放在 `/transmute-web/ads.txt` 的文件不满足根目录要求，因此带路径的 `SITE_URL` 配合发布商 ID 会被拒绝。
+   上面的域名和 ID 仅为格式示例，必须替换。配置发布商 ID 后，脚本在所有页面的 `<head>` 中加入 AdSense 异步脚本与 `google-adsense-account` 元标签，并生成 `dist/ads.txt`；未配置 ID 的构建不加载 AdSense。若使用 GitHub Pages，可设置同名仓库变量后重新部署。仅放在 `/transmute-web/ads.txt` 的文件不满足根目录要求，因此带路径的 `SITE_URL` 配合发布商 ID 会被拒绝。
 
 4. 部署后检查 `https://正式域名/ads.txt` 以及页面源码里的发布商 ID，在 AdSense 后台验证并提交审核。参考 [连接网站说明](https://support.google.com/adsense/answer/7584263)；网站状态为 Ready 后才能展示广告。
-5. 展示广告前，更新隐私说明，披露实际使用的广告服务、Cookie、退出方式与同意管理入口。参考 [Google 隐私披露要求](https://support.google.com/adsense/answer/1348695)。面向 EEA、英国和瑞士用户投放个性化广告，需要 [Google 认证的 CMP](https://support.google.com/adsense/answer/13554116)，可在 AdSense 的 Privacy & messaging 中配置。
-6. 完成实际账号和同意管理配置后，再添加 AdSense 提供的广告脚本及广告位。首次可在指南正文后设置一个清晰标明「广告」的独立区域；转换、文件选择、下载按钮附近应留足距离。不要用广告模拟下载按钮或引导用户点击广告，见 [AdSense 政策](https://support.google.com/adsense/answer/48182)。
+5. 隐私说明已披露 AdSense、广告 Cookie 及退出方式；实际展示前应按后台配置确认同意管理入口。参考 [Google 隐私披露要求](https://support.google.com/adsense/answer/1348695)。面向 EEA、英国和瑞士用户投放个性化广告，需要 [Google 认证的 CMP](https://support.google.com/adsense/answer/13554116)，可在 AdSense 的 Privacy & messaging 中配置。
+6. 连接脚本已支持自动注入。完成实际账号和同意管理配置后，在 AdSense 后台配置自动广告或添加广告位。首次可在指南正文后设置一个清晰标明「广告」的独立区域；转换、文件选择、下载按钮附近应留足距离。不要用广告模拟下载按钮或引导用户点击广告，见 [AdSense 政策](https://support.google.com/adsense/answer/48182)。
 
-本仓库尚未接入广告脚本，也未代替用户提交 AdSense 申请或填写付款资料。收入取决于真实流量、访客地区、广告需求等因素；接入代码和审核通过均不保证收入。
+发布商 ID 通过构建环境变量配置，GitHub Actions 使用同名仓库变量。服务器手动部署时也必须提供该变量，避免下一次发布丢失连接代码。本仓库不会代替用户提交 AdSense 申请或填写付款资料。收入取决于真实流量、访客地区、广告需求等因素；接入代码和审核通过均不保证收入。
 
 ## 许可
 
