@@ -137,7 +137,8 @@ def render_page(source, page, language, messages, site_url, pages, versions, noi
     en_url = site_url + page_path(page, 'en')
     zh_url = site_url + page_path(page, 'zh')
     social_image = site_url + 'assets/social-card.png?v=' + versions['assets/social-card.png']
-    meta = f'''<link rel="canonical" href="{escape(canonical, quote=True)}">
+    meta = f'''<meta name="applicable-device" content="pc,mobile">
+<link rel="canonical" href="{escape(canonical, quote=True)}">
 <link rel="alternate" hreflang="en" href="{escape(en_url, quote=True)}">
 <link rel="alternate" hreflang="zh-Hans" href="{escape(zh_url, quote=True)}">
 <link rel="alternate" hreflang="x-default" href="{escape(en_url, quote=True)}">

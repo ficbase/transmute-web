@@ -25,6 +25,9 @@ def main():
     site_url = site_url.rstrip("/") + "/"
     publisher = os.environ.get("ADSENSE_PUBLISHER_ID", "").strip()
     noindex = os.environ.get("SITE_NOINDEX", "0") == "1"
+    baidu_verification = os.environ.get("BAIDU_SITE_VERIFICATION", "").strip()
+    if baidu_verification and not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", baidu_verification):
+        raise SystemExit("BAIDU_SITE_VERIFICATION must contain only the verification tag's content value")
     if publisher and not re.fullmatch(r"ca-pub-\d{16}", publisher):
         raise SystemExit("ADSENSE_PUBLISHER_ID must have the form ca-pub- followed by 16 digits")
     if publisher and parts.path.strip("/"):
@@ -66,8 +69,10 @@ def main():
         if source.count("<!-- site-metadata -->") != 1:
             raise SystemExit(f"Missing or duplicate site metadata marker in {page}")
         tags = ''
+        if baidu_verification and not noindex:
+            tags = f'<meta name="baidu-site-verification" content="{baidu_verification}">'
         if publisher:
-            tags = f'<meta name="google-adsense-account" content="{publisher}">'
+            tags += f'<meta name="google-adsense-account" content="{publisher}">'
             tags += (f'\n  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={publisher}"'
                      ' crossorigin="anonymous"></script>')
         source = source.replace("<!-- site-metadata -->", tags)
@@ -77,19 +82,27 @@ def main():
             target.write_text(render_page(source, page, language, messages, site_url, PAGES, versions, noindex=noindex), encoding="utf-8")
     shutil.copytree(ROOT / "examples", output / "examples")
     (output / ".nojekyll").touch()
-    entries = ''
-    for language in ("en", "zh"):
-        for page in PAGES:
-            url = site_url + page_path(page, language)
-            alternates = ''.join(f'<xhtml:link rel="alternate" hreflang="{code}" href="{html.escape(site_url + page_path(page, locale), quote=True)}"/>'
-                                 for code, locale in (("en", "en"), ("zh-Hans", "zh"), ("x-default", "en")))
-            entries += f"  <url><loc>{escape(url)}</loc>{alternates}</url>\n"
-    (output / "sitemap.xml").write_text(
-        '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n' + entries + '</urlset>\n',
-        encoding="utf-8")
+    def write_sitemap(name, languages, alternates):
+        entries = ''
+        for language in languages:
+            for page in PAGES:
+                url = site_url + page_path(page, language)
+                links = ''.join(f'<xhtml:link rel="alternate" hreflang="{code}" href="{html.escape(site_url + page_path(page, locale), quote=True)}"/>'
+                                for code, locale in (("en", "en"), ("zh-Hans", "zh"), ("x-default", "en"))) if alternates else ''
+                entries += f"  <url><loc>{escape(url)}</loc>{links}</url>\n"
+        namespace = ' xmlns:xhtml="http://www.w3.org/1999/xhtml"' if alternates else ''
+        (output / name).write_text(
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"' + namespace + '>\n' + entries + '</urlset>\n',
+            encoding="utf-8")
+
+    write_sitemap("sitemap.xml", ("en", "zh"), alternates=True)
+    write_sitemap("sitemap-zh.xml", ("zh",), alternates=False)
+    # A canonical Chinese URL per line, ready for the platform's manual submission.
+    (output / "baidu-urls.txt").write_text(
+        ''.join(site_url + page_path(page, "zh") + "\n" for page in PAGES), encoding="utf-8")
     (output / "robots.txt").write_text(
-        f"User-agent: *\nAllow: /\nSitemap: {site_url}sitemap.xml\n", encoding="utf-8")
+        f"User-agent: *\nAllow: /\nSitemap: {site_url}sitemap.xml\nSitemap: {site_url}sitemap-zh.xml\n", encoding="utf-8")
     if publisher:
         (output / "ads.txt").write_text(
             f"google.com, {publisher.removeprefix('ca-')}, DIRECT, f08c47fec0942fa0\n", encoding="utf-8")
