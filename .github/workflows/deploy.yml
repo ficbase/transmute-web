@@ -44,6 +44,7 @@ jobs:
         env:
           SITE_URL: ${{ vars.SITE_URL || 'https://ficbase.github.io/transmute-web/' }}
           ADSENSE_PUBLISHER_ID: ${{ vars.ADSENSE_PUBLISHER_ID }}
+          SITE_NOINDEX: '1'
 
       - name: Setup Pages
         if: github.event_name != 'pull_request'

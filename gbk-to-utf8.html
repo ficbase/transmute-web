@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="article.gbk.title">Convert GBK to UTF-8 Online: Keep Chinese TXT Readable | EpuBloom</title>
+<meta name="description" data-i18n-content="article.gbk.description" content="Convert a GBK or GB18030 TXT file to UTF-8 in your browser. Follow the encoding selector, check Chinese characters, and download a separate text copy.">
+<!-- site-metadata -->
+<link rel="icon" type="image/svg+xml" href="favicon.svg"><link rel="stylesheet" href="site.css">
+<script type="module" src="i18n.js"></script>
+</head><body class="document-page">
+<a class="skip-link" href="#main" data-i18n="skip">Skip to content</a>
+<header class="site-header shell">
+  <a class="brand" href="index.html" aria-label="EpuBloom home" data-i18n-label="brand.home"><img src="favicon.svg" width="36" height="36" alt=""><span>EpuBloom<span class="brand-dot">.</span></span></a>
+  <nav class="main-nav" aria-label="Main navigation" data-i18n-label="nav.label"><a href="index.html"><span data-i18n="nav.converter" >Converter</span></a><a href="guide.html" aria-current="page"><span data-i18n="nav.guide" >Guide</span></a><a href="about.html"><span data-i18n="nav.about" >About</span></a></nav>
+  <div class="language-control">
+    <button class="language-trigger" id="languageSelect" type="button" aria-label="Website language" data-i18n-label="language.label" aria-haspopup="menu" aria-expanded="false" aria-controls="languageMenu" disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h12M9 3v2M5 5c1 5 4 8 8 10M13 5c-1 5-4 8-8 10M14 21l4-11 4 11M15.5 17h5"/></svg>
+      <span data-language-current>English</span><svg class="language-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+    </button>
+    <div class="language-menu" id="languageMenu" role="menu" aria-label="Website language" data-i18n-label="language.label" hidden>
+      <button class="language-option" type="button" role="menuitemradio" aria-checked="true" data-language-option="en" lang="en" tabindex="-1">English<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4 10-10"/></svg></button>
+      <button class="language-option" type="button" role="menuitemradio" aria-checked="false" data-language-option="zh" lang="zh-CN" tabindex="-1">简体中文<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4 10-10"/></svg></button>
+    </div>
+  </div>
+</header>
+<main id="main" class="document-shell shell"><div class="document-heading"><p class="eyebrow" data-i18n="article.eyebrow">THE READING ROOM</p><h1 data-i18n="article.gbk.heading">Convert GBK to UTF-8 without changing your text.</h1></div><div class="article-actions"><a class="article-cta" href="index.html#converter" data-i18n="article.gbk.action">Convert TXT encoding ↗</a><a class="text-link" href="guide.html" data-i18n="article.back">All conversion guides ↗</a></div><article class="document-content" data-i18n-html="article.gbk.body"><p class="note">This changes how a TXT file stores characters. It does not translate the text or turn it into an EPUB. Keep the original file.</p>
+<p>Some older Chinese text files use GBK, GB2312, or GB18030. UTF-8 is a useful choice when moving text between current editors and devices. EpuBloom can read supported TXT encodings and write a separate UTF-8 copy locally in your browser.</p>
+<h2>Convert a Chinese TXT file in four steps</h2><ol><li>Open the <a href="index.html#converter">TXT converter</a> and choose your original <code>.txt</code> file.</li><li>Look below “Convert to EPUB” for “Current TXT encoding.” Older Chinese files may appear as “GBK / GB18030 (estimated).”</li><li>Choose <strong>UTF-8</strong> in “Convert to,” then click <strong>Convert encoding</strong>.</li><li>Open the downloaded <code>.utf8.txt</code> copy and check the title, several paragraphs, punctuation, and the last page against the original.</li></ol>
+<p>The export filename field also names this copy. For example, an export name of <code>My Notes</code> produces <code>My Notes.utf8.txt</code>. Encoding conversion downloads the TXT directly; it does not replace an EPUB conversion you already made.</p>
+<h2>What actually changes?</h2><p>The characters should stay the same, while the bytes change. For the text <strong>中文</strong>, these are the bytes in hexadecimal:</p><div class="table-scroll"><table><thead><tr><th>Encoding</th><th>Bytes for 中文</th></tr></thead><tbody><tr><td>GBK</td><td><code>D6 D0 CE C4</code></td></tr><tr><td>UTF-8</td><td><code>E4 B8 AD E6 96 87</code></td></tr></tbody></table></div>
+<p>Renaming <code>book.txt</code> to <code>book.utf8.txt</code> changes only the name. The conversion button reads the characters and writes the new bytes. The UTF-8 copy uses no BOM; UTF-16 LE and BE copies include a BOM.</p>
+<h2>Why is the current encoding only an estimate?</h2><p>EpuBloom checks a UTF-8 or UTF-16 BOM first, then validates UTF-8, then tries GB18030 for legacy Chinese text. GBK and GB2312 data can also be valid GB18030, so a file without a BOM does not reliably identify which of these was intended. Even valid decoding cannot prove that every character was interpreted as the author intended.</p>
+<p>If the original uses another encoding, such as Big5 or Shift-JIS, use an editor with an explicit source-encoding setting. This converter does not offer those encodings. The <a href="fix-text-encoding.html">garbled-text troubleshooting guide</a> explains the difference between reopening bytes and saving already garbled text.</p>
+<h2>Can I convert UTF-8 back to GBK?</h2><p>Yes: choose GBK as the target. Some characters, including many emoji, cannot be represented in GBK. EpuBloom stops instead of silently replacing them; choose UTF-8 or GB18030 when needed. A successful download still deserves a quick visual check.</p>
+<h2>When conversion cannot repair the file</h2><p>If an earlier save replaced missing characters with <code>?</code> or <code>�</code>, encoding conversion cannot reconstruct the lost original. Return to an untouched backup. If the tool rejects the bytes, confirm the source encoding before trying again.</p>
+<h2>Next: make a readable ebook</h2><p>Once your text is correct, follow the <a href="txt-to-epub.html">TXT to EPUB guide</a>. Use the <a href="txt-chapters.html">chapter heading examples</a> to build a navigable table of contents. Encoding conversion alone does not add chapters, metadata, or a cover.</p></article></main>
+<footer class="site-footer shell"><div><a class="footer-brand" href="index.html">EpuBloom.</a><p data-i18n="footer.tagline" >A little less formatting. A little more reading.</p></div><nav aria-label="Footer navigation" data-i18n-label="nav.footer"><a href="guide.html"><span data-i18n="nav.guide" >Guide</span></a><a href="contact.html"><span data-i18n="nav.contact" >Contact</span></a><a href="privacy.html"><span data-i18n="nav.privacy" >Privacy</span></a><a href="https://github.com/ficbase/transmute-web">GitHub ↗</a></nav><p class="footer-credit"><span data-i18n="footer.powered" >Built with</span> <a href="https://github.com/ficbase/transmute">Transmute</a> · <span data-i18n="footer.local" >Made to stay on your device</span></p></footer>
+</body></html>

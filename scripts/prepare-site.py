@@ -12,7 +12,8 @@ from xml.sax.saxutils import escape
 
 ROOT = Path(__file__).resolve().parents[1]
 PAGES = ("index.html", "guide.html", "about.html", "contact.html", "privacy.html",
-         "txt-to-epub.html", "epub-to-txt.html", "fix-text-encoding.html")
+         "txt-to-epub.html", "epub-to-txt.html", "fix-text-encoding.html",
+         "gbk-to-utf8.html", "epub-cover.html", "txt-chapters.html")
 
 
 def main():
@@ -23,6 +24,7 @@ def main():
         raise SystemExit("SITE_URL must be a public HTTPS base URL without query, fragment or credentials")
     site_url = site_url.rstrip("/") + "/"
     publisher = os.environ.get("ADSENSE_PUBLISHER_ID", "").strip()
+    noindex = os.environ.get("SITE_NOINDEX", "0") == "1"
     if publisher and not re.fullmatch(r"ca-pub-\d{16}", publisher):
         raise SystemExit("ADSENSE_PUBLISHER_ID must have the form ca-pub- followed by 16 digits")
     if publisher and parts.path.strip("/"):
@@ -50,6 +52,7 @@ def main():
     write_asset("pkg/transmute_web.js", module.encode("utf-8"))
     for name in ("site.css", "favicon.svg", "i18n.js"):
         write_asset(name, (ROOT / name).read_bytes())
+    write_asset("assets/social-card.png", (ROOT / "assets/social-card.png").read_bytes())
     editor = (ROOT / "cover-editor.js").read_text(encoding="utf-8").replace(
         "'./i18n.js'", f"'./i18n.js?v={versions['i18n.js']}'")
     write_asset("cover-editor.js", editor.encode("utf-8"))
@@ -71,14 +74,19 @@ def main():
         for language in ("en", "zh"):
             target = output / (("zh/" if language == "zh" else "") + page)
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(render_page(source, page, language, messages, site_url, PAGES, versions), encoding="utf-8")
+            target.write_text(render_page(source, page, language, messages, site_url, PAGES, versions, noindex=noindex), encoding="utf-8")
     shutil.copytree(ROOT / "examples", output / "examples")
     (output / ".nojekyll").touch()
-    locations = [site_url + page_path(page, language) for language in ("en", "zh") for page in PAGES]
-    entries = "".join(f"  <url><loc>{escape(url)}</loc></url>\n" for url in locations)
+    entries = ''
+    for language in ("en", "zh"):
+        for page in PAGES:
+            url = site_url + page_path(page, language)
+            alternates = ''.join(f'<xhtml:link rel="alternate" hreflang="{code}" href="{html.escape(site_url + page_path(page, locale), quote=True)}"/>'
+                                 for code, locale in (("en", "en"), ("zh-Hans", "zh"), ("x-default", "en")))
+            entries += f"  <url><loc>{escape(url)}</loc>{alternates}</url>\n"
     (output / "sitemap.xml").write_text(
         '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + entries + '</urlset>\n',
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n' + entries + '</urlset>\n',
         encoding="utf-8")
     (output / "robots.txt").write_text(
         f"User-agent: *\nAllow: /\nSitemap: {site_url}sitemap.xml\n", encoding="utf-8")
