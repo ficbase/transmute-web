@@ -9,7 +9,7 @@
 - **txt → epub**: 自动检测章节（中英文编号）、提取标题/作者、可编辑元数据（书名/作者/语言/简介/出版社/标识符/日期/版权/标签）、可选自定义封面
 - **epub → txt**: 还原纯文本，保留段落分行和全角空格缩进
 - **自动编码检测**: BOM → UTF-8 严格验证 → GB18030 严格解码，兼容旧版中文 txt
-- **在线阅读**: 选择 TXT / EPUB 后直接打开阅读器，右侧章节目录、章节搜索、左右方向键切章、字号与纸张/明亮/夜间主题；重新选择同一文件恢复章节和滚动位置，Esc 退出。EPUB 按 spine 顺序阅读，保留基本排版及内嵌插图，文件中的脚本、远程图片和外部样式不执行或加载。文件不超过 50 MB，单个 EPUB 资源不超过 8 MB。
+- **在线阅读**: 选择 TXT / EPUB 后直接打开阅读器，右侧章节目录、章节搜索、左右方向键切章、字号与纸张/明亮/夜间主题；支持浏览器全屏和带动画的标题栏收起。在章末继续下滚进入下一章，章首上滚返回上一章末尾，支持滚轮和触摸，防止惯性连续跳章。重新选择同一文件恢复章节和滚动位置，Esc 退出。EPUB 按 spine 顺序阅读，保留基本排版及内嵌插图，文件中的脚本、远程图片和外部样式不执行或加载。文件不超过 50 MB，单个 EPUB 资源不超过 8 MB。
 - **纯本地处理**: WASM 在浏览器内运行，文件不上传
 
 ## 界面与语言
@@ -45,6 +45,8 @@ python3 -m http.server -d dist 8080
 # 访问 http://localhost:8080
 ```
 
+阅读交互回归检查位于 `tests/reader-controls.cjs`。在已安装 Playwright 及 Chromium 的环境中，启动预览后运行 `SITE_TEST_URL=http://127.0.0.1:8080/ node tests/reader-controls.cjs`；自定义 Chromium 路径可用 `PLAYWRIGHT_CHROMIUM_EXECUTABLE` 指定。检查实际全屏进出、拒绝提示、标题栏收起与阅读位置、滚轮/触摸跨章、惯性和首末章节边界，以及中英文小屏布局。
+
 ## 部署
 
 正式网站运行在独立服务器上。现有 GitHub Actions 会检查构建和中英文转换测试，并发布 `https://ficbase.github.io/transmute-web/` 预览（可用 `PREVIEW_SITE_URL` 覆盖）；它不会自动更新独立服务器。服务器发布时，用 `SITE_URL=https://epubloom.com/` 生成 `dist/`，把完整目录放入新的发布目录，再切换网站目录。Nginx 与证书配置保留在服务器上。不要发布项目根目录或 `.key` 等连接信息。
@@ -79,9 +81,9 @@ GitHub Pages 也可绑定独立域名；本仓库当前仅把它用于预览。�
 
 ### 搜索收录与内容维护
 
-正式构建为 11 个页面生成英文版本与 `/zh/` 简体中文版本，共 22 个可独立访问的页面。正文在打包时写入 HTML，不需要搜索引擎执行语言切换；每页包含自己的 canonical、双向 hreflang（en / zh-Hans / x-default）、分享标题与描述，以及与可见内容一致的 JSON-LD。明确的英文与中文网址保持对应语言；切换时同步地址与内部链接，并保留当前文件和转换结果。
+正式构建为 12 个页面生成英文版本与 `/zh/` 简体中文版本，共 24 个可独立访问的页面。正文在打包时写入 HTML，不需要搜索引擎执行语言切换；每页包含自己的 canonical、双向 hreflang（en / zh-Hans / x-default）、分享标题与描述，以及与可见内容一致的 JSON-LD。明确的英文与中文网址保持对应语言；切换时同步地址与内部链接，并保留当前文件和转换结果。
 
-- 实用指南：`txt-to-epub.html`、`epub-to-txt.html`、`fix-text-encoding.html`、`gbk-to-utf8.html`、`epub-cover.html`、`txt-chapters.html`，从首页和完整指南链接进入。编码、封面与目录指南根据实际功能编写，目录指南提供可下载示例。
+- 实用指南：`online-reader.html`、`txt-to-epub.html`、`epub-to-txt.html`、`fix-text-encoding.html`、`gbk-to-utf8.html`、`epub-cover.html`、`txt-chapters.html`，从首页和完整指南链接进入。阅读、编码、封面与目录指南根据实际功能编写，目录指南提供可下载示例。
 - 文章提供可见面包屑、正文目录与 EpuBloom 署名，结构化数据与正文一致。分享卡使用 1200 × 630 PNG，支持大图预览。
 - GitHub Pages 预览构建设置 `SITE_NOINDEX=1`；正式服务器构建使用 `SITE_NOINDEX=0`。预览页面允许抓取以读取 noindex，正式站点保持可索引。
 - 服务器配置参考 `deploy/nginx/epubloom.conf`：HTTP/www 与首页别名永久跳转、真实 404、CSS/JS/WASM 压缩及一小时缓存。页面需重新验证缓存；替换配置前备份并检查 Nginx 语法，保留其他站点和证书续期。
@@ -98,7 +100,7 @@ GitHub Pages 也可绑定独立域名；本仓库当前仅把它用于预览。�
 
 发布目录提供：
 
-- `sitemap-zh.xml`：11 个中文规范网址，平铺的标准 XML 站点地图，不使用嵌套索引。
+- `sitemap-zh.xml`：12 个中文规范网址，平铺的标准 XML 站点地图，不使用嵌套索引。
 - `baidu-urls.txt`：同一批中文网址，每行一条，供百度平台手动提交时复制。
 - `robots.txt`：允许抓取并声明完整站点地图及中文站点地图。
 
