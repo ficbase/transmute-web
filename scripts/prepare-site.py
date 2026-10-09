@@ -50,8 +50,11 @@ def main():
     write_asset("pkg/transmute_web.js", module.encode("utf-8"))
     for name in ("site.css", "favicon.svg", "i18n.js"):
         write_asset(name, (ROOT / name).read_bytes())
+    editor = (ROOT / "cover-editor.js").read_text(encoding="utf-8").replace(
+        "'./i18n.js'", f"'./i18n.js?v={versions['i18n.js']}'")
+    write_asset("cover-editor.js", editor.encode("utf-8"))
     converter = (ROOT / "converter.js").read_text(encoding="utf-8")
-    for name in ("i18n.js", "pkg/transmute_web.js"):
+    for name in ("i18n.js", "cover-editor.js", "pkg/transmute_web.js"):
         converter = converter.replace(f"'./{name}'", f"'./{name}?v={versions[name]}'")
     write_asset("converter.js", converter.encode("utf-8"))
     messages = translations((ROOT / "i18n.js").read_text(encoding="utf-8"))
