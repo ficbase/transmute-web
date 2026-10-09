@@ -226,6 +226,9 @@ svg {
 }
 
 .language-option svg {
+  width:15px;
+  height:15px;
+  flex-shrink:0;
   margin-left:auto;
   visibility:hidden;
 }
@@ -836,6 +839,77 @@ svg {
 
 .btn-download:hover {
   background:#deeacf;
+}
+
+.encoding-actions[hidden] {
+  display:none;
+}
+
+.encoding-actions {
+  margin-top:14px;
+  padding:16px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#f7f8f2;
+}
+
+.encoding-source,.encoding-row {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:8px;
+  font-size:12px;
+}
+
+.encoding-source {
+  margin:0 0 12px;
+  color:var(--muted);
+}
+
+.encoding-source strong {
+  color:var(--ink);
+  font-size:11px;
+  font-weight:500;
+}
+
+.encoding-control {
+  position:relative;
+}
+
+.encoding-trigger {
+  min-width:132px;
+  justify-content:space-between;
+  border-radius:8px;
+  background:var(--white);
+}
+
+.encoding-menu {
+  top:auto;
+  bottom:calc(100% + 8px);
+}
+
+.btn-encoding {
+  margin-top:10px;
+  background:var(--white);
+  color:var(--green);
+  border-color:#cbd7c1;
+}
+
+.btn-encoding:not(:disabled):hover {
+  background:var(--accent);
+}
+
+.btn-encoding:disabled {
+  opacity:.55;
+}
+
+.encoding-hint {
+  margin:8px 0 0;
+  font-size:10px;
+  line-height:1.6;
+  text-align:center;
+  color:var(--muted);
 }
 
 .status {

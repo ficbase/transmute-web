@@ -16,6 +16,31 @@ use zip::{CompressionMethod, ZipWriter};
 static WASM_TIMESTAMP: AtomicU64 = AtomicU64::new(0);
 static UUID_COUNTER: AtomicU64 = AtomicU64::new(1);
 
+/// Encode a TXT copy without silently replacing unsupported characters.
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+pub fn encode_text(text: &str, encoding: &str) -> Result<Vec<u8>, String> {
+    match encoding {
+        "utf-8" => Ok(text.as_bytes().to_vec()),
+        "utf-16le" | "utf-16be" => {
+            let little = encoding == "utf-16le";
+            let mut bytes = if little { vec![0xff, 0xfe] } else { vec![0xfe, 0xff] };
+            for unit in text.encode_utf16() {
+                bytes.extend_from_slice(&if little { unit.to_le_bytes() } else { unit.to_be_bytes() });
+            }
+            Ok(bytes)
+        }
+        "gbk" | "gb18030" => {
+            let codec = if encoding == "gbk" { encoding_rs::GBK } else { encoding_rs::GB18030 };
+            let (bytes, _, errors) = codec.encode(text);
+            if errors || codec.decode_without_bom_handling_and_without_replacement(&bytes).as_deref() != Some(text) {
+                return Err("UNREPRESENTABLE".into());
+            }
+            Ok(bytes.into_owned())
+        }
+        _ => Err("UNSUPPORTED_ENCODING".into()),
+    }
+}
+
 // ── EPUB document model ──────────────────────────────────────────────
 
 #[derive(Debug, Clone, Default)]
@@ -928,6 +953,28 @@ fn strip_html(html: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn txt_encodings_preserve_text_and_line_endings() {
+        let text = "中文，Chapter 1\r\n第二行\n";
+        assert_eq!(encode_text(text, "utf-8").unwrap(), text.as_bytes());
+        for (name, codec) in [("gbk", encoding_rs::GBK), ("gb18030", encoding_rs::GB18030),
+                              ("utf-16le", encoding_rs::UTF_16LE), ("utf-16be", encoding_rs::UTF_16BE)] {
+            let bytes = encode_text(text, name).unwrap();
+            assert_eq!(codec.decode(&bytes).0, text);
+        }
+        assert_eq!(encode_text("中", "gbk").unwrap(), vec![0xd6, 0xd0]);
+        assert_eq!(encode_text("A", "utf-16le").unwrap(), vec![0xff, 0xfe, 0x41, 0]);
+        assert_eq!(encode_text("A", "utf-16be").unwrap(), vec![0xfe, 0xff, 0, 0x41]);
+    }
+
+    #[test]
+    fn legacy_encoding_rejects_lossy_output() {
+        assert_eq!(encode_text("中文😀", "gbk"), Err("UNREPRESENTABLE".into()));
+        let bytes = encode_text("中文😀", "gb18030").unwrap();
+        assert_eq!(encoding_rs::GB18030.decode(&bytes).0, "中文😀");
+        assert!(encode_text("text", "unknown").is_err());
+    }
 
     #[test]
     fn english_book_round_trip_uses_english_headers_and_default_chapter() {

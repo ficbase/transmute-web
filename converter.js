@@ -1,5 +1,5 @@
 import { t, getLanguage } from './i18n.js';
-import init, { txt_to_epub, epub_to_txt, init_panic_hook, set_timestamp, detect_title, detect_author } from './pkg/transmute_web.js';
+import init, { txt_to_epub, epub_to_txt, encode_text, init_panic_hook, set_timestamp, detect_title, detect_author } from './pkg/transmute_web.js';
 
 // ── State ──────────────────────────────────────────────────────
 const state = {
@@ -9,6 +9,11 @@ const state = {
   resultName: null,
   mode: null,
   busy: false,
+  operation: null,
+  sourceEncoding: null,
+  encodingInvalid: false,
+  encodingReady: Promise.resolve(),
+  targetEncoding: 'utf-8',
   loadFailed: false,
   metadataReady: Promise.resolve(),
   statusKey: 'status.loading',
@@ -31,6 +36,13 @@ const coverFileRow = $('#coverFileRow');
 const coverFileName = $('#coverFileName');
 const coverRemove = $('#coverRemove');
 const convertBtn = $('#convertBtn');
+const encodingActions = $('#encodingActions');
+const encodingBtn = $('#encodingBtn');
+const sourceEncoding = $('#sourceEncoding');
+const encodingSelect = $('#encodingSelect');
+const encodingMenu = $('#encodingMenu');
+const encodingOptions = [...document.querySelectorAll('[data-encoding-option]')];
+const encodingNames = { 'utf-8': 'UTF-8', gbk: 'GBK', gb18030: 'GB18030', 'utf-16le': 'UTF-16 LE', 'utf-16be': 'UTF-16 BE' };
 const downloadBtn = $('#downloadBtn');
 const status = $('#status');
 const metaSection = $('#metaSection');
@@ -74,8 +86,14 @@ function updateUI() {
   coverRow.style.display = isTxt ? 'block' : 'none';
   metaSection.style.display = isTxt ? 'block' : 'none';
   convertBtn.disabled = !state.file || state.busy || state.loadFailed;
-  convertBtn.textContent = t(state.busy ? 'action.converting' : isTxt
+  convertBtn.textContent = t(state.busy && state.operation !== 'encoding' ? 'action.converting' : isTxt
     ? 'action.epub' : state.mode === 'epub2txt' ? 'action.txt' : 'action.choose');
+  encodingActions.hidden = !isTxt;
+  encodingBtn.disabled = !isTxt || state.busy || !state.sourceEncoding || state.loadFailed;
+  encodingBtn.textContent = t(state.operation === 'encoding' ? 'action.encodingConverting' : 'action.encoding');
+  encodingSelect.disabled = state.busy;
+  sourceEncoding.textContent = state.sourceEncoding === 'gb18030' ? t('encoding.legacy')
+    : state.sourceEncoding ? encodingNames[state.sourceEncoding] : t(state.encodingInvalid ? 'encoding.unknown' : 'encoding.detecting');
   downloadBtn.textContent = t('action.download');
   fileInput.disabled = state.busy;
   coverInput.disabled = state.busy;
@@ -96,6 +114,9 @@ function setFile(file) {
   state.mode = mode;
   state.result = null;
   state.cover = null;
+  state.sourceEncoding = null;
+  state.encodingInvalid = false;
+  closeEncodingMenu();
   coverInput.value = '';
   downloadBtn.classList.remove('show');
   [metaTitle, metaAuthor, metaDesc, metaPublisher, metaIdentifier, metaDate, metaRights, metaSubjects].forEach(field => { field.value = ''; });
@@ -107,6 +128,23 @@ function setFile(file) {
   setStatus(state.loadFailed ? 'status.loadFailed' : '');
   // auto-fill metadata for txt files
   state.metadataReady = mode === 'txt2epub' ? autoFillMeta(file) : Promise.resolve();
+  state.encodingReady = mode === 'txt2epub' ? detectSourceEncoding(file) : Promise.resolve();
+}
+
+async function detectSourceEncoding(file) {
+  try {
+    const buf = await file.arrayBuffer();
+    const encoding = detectEncoding(buf, 'gb18030');
+    decodeBuffer(buf, encoding, true);
+    if (state.file !== file) return;
+    state.sourceEncoding = encoding;
+    updateUI();
+  } catch {
+    if (state.file !== file) return;
+    state.encodingInvalid = true;
+    updateUI();
+    setStatus('status.encodingInvalid', 'error');
+  }
 }
 
 function openPicker(zone, input) {
@@ -215,28 +253,98 @@ function collectMetadata() {
 }
 
 // ── Encoding detection ───────────────────────────────────────────
-function detectEncoding(buf) {
+function detectEncoding(buf, fallback = 'gbk') {
   const bytes = new Uint8Array(buf);
   if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) return 'utf-8';
   if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE) return 'utf-16le';
   if (bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF) return 'utf-16be';
   try { new TextDecoder('utf-8', { fatal: true }).decode(bytes); return 'utf-8'; } catch (_) {}
-  return 'gbk';
+  return fallback;
 }
 
-function decodeBuffer(buf, enc) {
+function decodeBuffer(buf, enc, strict = false) {
   const bytes = new Uint8Array(buf);
   let start = 0;
   if (enc === 'utf-8' && bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) start = 3;
   else if ((enc === 'utf-16le' || enc === 'utf-16') && bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE) start = 2;
   else if (enc === 'utf-16be' && bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF) start = 2;
-  return new TextDecoder(enc).decode(start ? bytes.subarray(start) : bytes);
+  return new TextDecoder(enc, { fatal: strict }).decode(start ? bytes.subarray(start) : bytes);
 }
+
+function closeEncodingMenu(restoreFocus = false) {
+  encodingMenu.hidden = true;
+  encodingSelect.setAttribute('aria-expanded', 'false');
+  if (restoreFocus) encodingSelect.focus();
+}
+function openEncodingMenu(index = encodingOptions.findIndex(option => option.dataset.encodingOption === state.targetEncoding)) {
+  encodingMenu.hidden = false;
+  encodingSelect.setAttribute('aria-expanded', 'true');
+  encodingOptions[index]?.focus();
+}
+encodingSelect.addEventListener('click', () => encodingMenu.hidden ? openEncodingMenu() : closeEncodingMenu());
+encodingSelect.addEventListener('keydown', event => {
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    openEncodingMenu(event.key === 'ArrowDown' ? 0 : encodingOptions.length - 1);
+  }
+});
+encodingOptions.forEach(option => option.addEventListener('click', () => {
+  state.targetEncoding = option.dataset.encodingOption;
+  $('#targetEncoding').textContent = encodingNames[state.targetEncoding];
+  encodingOptions.forEach(item => item.setAttribute('aria-checked', String(item === option)));
+  closeEncodingMenu(true);
+}));
+encodingMenu.addEventListener('keydown', event => {
+  const index = encodingOptions.indexOf(document.activeElement);
+  let next;
+  if (event.key === 'ArrowDown') next = (index + 1) % encodingOptions.length;
+  if (event.key === 'ArrowUp') next = (index - 1 + encodingOptions.length) % encodingOptions.length;
+  if (event.key === 'Home') next = 0;
+  if (event.key === 'End') next = encodingOptions.length - 1;
+  if (next !== undefined) { event.preventDefault(); encodingOptions[next].focus(); }
+  else if (event.key === 'Escape') { event.preventDefault(); closeEncodingMenu(true); }
+  else if (event.key === 'Tab') closeEncodingMenu(true);
+});
+for (const type of ['click', 'focusin']) document.addEventListener(type, event => {
+  if (!encodingSelect.closest('.encoding-control').contains(event.target)) closeEncodingMenu();
+});
+
+// Export a separate TXT copy without replacing the EPUB conversion result.
+encodingBtn.addEventListener('click', async () => {
+  if (!state.file || state.mode !== 'txt2epub' || state.busy) return;
+  state.busy = true;
+  state.operation = 'encoding';
+  updateUI();
+  closeEncodingMenu();
+  setStatus('status.encodingConverting');
+  try {
+    await wasmReady;
+    await state.encodingReady;
+    const buf = await state.file.arrayBuffer();
+    const enc = state.sourceEncoding;
+    if (!enc) { setStatus('status.encodingInvalid', 'error'); return; }
+    let text;
+    try { text = decodeBuffer(buf, enc, true); }
+    catch { setStatus('status.encodingInvalid', 'error'); return; }
+    const bytes = encode_text(text, state.targetEncoding);
+    const name = state.file.name.replace(/\.txt$/i, '') + '.' + state.targetEncoding.replaceAll('-', '') + '.txt';
+    downloadFile(bytes, name, 'text/plain;charset=' + state.targetEncoding);
+    setStatus('status.encodingSuccess', 'success', { name });
+  } catch (e) {
+    if (String(e).includes('UNREPRESENTABLE')) setStatus('status.encodingLoss', 'error', { encoding: encodingNames[state.targetEncoding] });
+    else setStatus(state.loadFailed ? 'status.loadFailed' : 'status.error', 'error', { message: e.message || String(e) });
+  } finally {
+    state.busy = false;
+    state.operation = null;
+    updateUI();
+  }
+});
 
 // ── Convert ────────────────────────────────────────────────────
 convertBtn.addEventListener('click', async () => {
   if (!state.file || state.busy) return;
   state.busy = true;
+  state.operation = 'epub';
   updateUI();
   setStatus('status.converting');
   downloadBtn.classList.remove('show');
@@ -279,6 +387,7 @@ convertBtn.addEventListener('click', async () => {
     setStatus(state.loadFailed ? 'status.loadFailed' : 'status.error', 'error', { message: e.message });
   } finally {
     state.busy = false;
+    state.operation = null;
     updateUI();
   }
 });
@@ -286,16 +395,20 @@ convertBtn.addEventListener('click', async () => {
 // ── Download ───────────────────────────────────────────────────
 downloadBtn.addEventListener('click', () => {
   if (!state.result) return;
-  const blob = new Blob([state.result], { type: state.mode === 'txt2epub' ? 'application/epub+zip' : 'text/plain;charset=utf-8' });
+  downloadFile(state.result, state.resultName, state.mode === 'txt2epub' ? 'application/epub+zip' : 'text/plain;charset=utf-8');
+});
+
+function downloadFile(bytes, name, type) {
+  const blob = new Blob([bytes], { type });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = state.resultName;
+  a.download = name;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-});
+}
 
 // ── Init WASM ──────────────────────────────────────────────────
 const wasmReady = (async () => {
