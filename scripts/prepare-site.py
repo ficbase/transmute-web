@@ -13,7 +13,7 @@ from xml.sax.saxutils import escape
 ROOT = Path(__file__).resolve().parents[1]
 PAGES = ("index.html", "guide.html", "about.html", "contact.html", "privacy.html",
          "txt-to-epub.html", "epub-to-txt.html", "fix-text-encoding.html",
-         "gbk-to-utf8.html", "epub-cover.html", "txt-chapters.html")
+         "gbk-to-utf8.html", "epub-cover.html", "txt-chapters.html", "online-reader.html")
 
 
 def main():

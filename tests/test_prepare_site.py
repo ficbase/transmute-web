@@ -23,7 +23,7 @@ class PrepareSiteTests(unittest.TestCase):
             shutil.copy2(repo / 'scripts' / script, self.root / 'scripts' / script)
         self.pages = ('index.html', 'guide.html', 'about.html', 'contact.html', 'privacy.html',
                       'txt-to-epub.html', 'epub-to-txt.html', 'fix-text-encoding.html',
-                      'gbk-to-utf8.html', 'epub-cover.html', 'txt-chapters.html')
+                      'gbk-to-utf8.html', 'epub-cover.html', 'txt-chapters.html', 'online-reader.html')
         for page in self.pages:
             shutil.copy2(repo / page, self.root / page)
         shutil.copy2(repo / 'i18n.js', self.root / 'i18n.js')
@@ -153,7 +153,7 @@ class PrepareSiteTests(unittest.TestCase):
         for site_url in ('https://epubloom.com/', 'https://ficbase.github.io/transmute-web/'):
             output = self.build(site_url=site_url)
             locations = {node.text for node in ET.parse(output / 'sitemap.xml').findall('.//{*}loc')}
-            self.assertEqual(len(locations), 22)
+            self.assertEqual(len(locations), 24)
             sitemap = ET.parse(output / 'sitemap.xml')
             for node in sitemap.findall('.//{http://www.sitemaps.org/schemas/sitemap/0.9}url'):
                 alternates = node.findall('{http://www.w3.org/1999/xhtml}link')
@@ -184,7 +184,7 @@ class PrepareSiteTests(unittest.TestCase):
                         breadcrumb = next(item for item in schema['@graph'] if item['@type'] == 'BreadcrumbList')
                         self.assertEqual(breadcrumb['itemListElement'][-1]['item'], canonical)
                         self.assertIn('class="breadcrumbs"', source)
-                    if page in ('gbk-to-utf8.html', 'epub-cover.html', 'txt-chapters.html'):
+                    if page in ('gbk-to-utf8.html', 'epub-cover.html', 'txt-chapters.html', 'online-reader.html'):
                         article = next(item for item in schema['@graph'] if item['@type'] == 'Article')
                         self.assertEqual(article['mainEntityOfPage']['@id'], canonical + '#webpage')
                         self.assertNotIn('aggregateRating', source)
@@ -197,6 +197,29 @@ class PrepareSiteTests(unittest.TestCase):
             base = '/' + site_url.split('/', 3)[3]
             self.assertIn(f'href="{base}zh/#converter"', chinese)
             self.assertIn(f'href="{base}site.css?v=', chinese)
+
+    def test_reader_is_discoverable_without_javascript_in_both_languages(self):
+        output = self.build()
+        for prefix, locale, heading in (('', 'en', 'Read EPUB and TXT online'),
+                                         ('zh/', 'zh-CN', '在线阅读 EPUB 与 TXT')):
+            reader_url = f'https://epubloom.com/{prefix}online-reader.html'
+            reader = (output / prefix / 'online-reader.html').read_text()
+            self.assertIn(heading, reader)
+            self.assertEqual(reader.count('<h2 id="section-'), 6)
+            self.assertIn(f'href="/{prefix}#converter"', reader)
+            for destination in ('gbk-to-utf8.html', 'txt-chapters.html', 'privacy.html'):
+                self.assertIn(f'href="/{prefix}{destination}"', reader)
+            for entry in ('index.html', 'guide.html', 'txt-to-epub.html', 'epub-to-txt.html', 'txt-chapters.html'):
+                self.assertIn(f'href="/{prefix}online-reader.html"', (output / prefix / entry).read_text())
+            home = (output / prefix / 'index.html').read_text()
+            graph = json.loads(re.search(r'id="site-structured-data">(.*?)</script>', home).group(1))['@graph']
+            app = next(item for item in graph if item['@type'] == 'WebApplication')
+            self.assertEqual(app['softwareHelp'], reader_url)
+            self.assertEqual(app['inLanguage'], locale)
+            self.assertEqual(len(app['featureList']), 5)
+            self.assertNotIn('aggregateRating', app)
+            self.assertIn(reader_url, (output / 'sitemap.xml').read_text())
+        self.assertIn('https://epubloom.com/zh/online-reader.html', (output / 'baidu-urls.txt').read_text())
 
 
 if __name__ == '__main__':
