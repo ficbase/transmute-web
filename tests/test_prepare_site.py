@@ -41,8 +41,8 @@ class PrepareSiteTests(unittest.TestCase):
         shutil.copy2(repo / 'assets/social-card.png', self.root / 'assets/social-card.png')
         (self.root / '.key').write_text('private-test-fixture')
 
-    def build(self, publisher='', site_url='https://epubloom.com/', noindex=False):
-        environment = dict(os.environ, SITE_URL=site_url, ADSENSE_PUBLISHER_ID=publisher, SITE_NOINDEX='1' if noindex else '0')
+    def build(self, publisher='', site_url='https://epubloom.com/', noindex=False, baidu_verification=''):
+        environment = dict(os.environ, SITE_URL=site_url, ADSENSE_PUBLISHER_ID=publisher, SITE_NOINDEX='1' if noindex else '0', BAIDU_SITE_VERIFICATION=baidu_verification)
         subprocess.run([sys.executable, str(self.root / 'scripts/prepare-site.py')], env=environment, check=True, capture_output=True)
         return self.root / 'dist'
 
@@ -58,7 +58,7 @@ class PrepareSiteTests(unittest.TestCase):
             'site.css', 'favicon.svg', 'converter.js', 'cover-editor.js', 'i18n.js', 'examples/sample.txt', 'examples/sample-en.txt',
             'assets/social-card.png',
             'pkg/transmute_web.js', 'pkg/transmute_web_bg.wasm', 'robots.txt',
-            'sitemap.xml', '.nojekyll', 'ads.txt',
+            'sitemap.xml', 'sitemap-zh.xml', 'baidu-urls.txt', '.nojekyll', 'ads.txt',
         })
         for page in (*self.pages, *('zh/' + p for p in self.pages)):
             head = (output / page).read_text().split('</head>')[0]
@@ -75,6 +75,25 @@ class PrepareSiteTests(unittest.TestCase):
         self.build(site_url='https://ficbase.github.io/transmute-web/', noindex=True)
         for page in ('index.html', 'zh/index.html', 'gbk-to-utf8.html'):
             self.assertIn('content="noindex, follow, max-image-preview:large"', (output / page).read_text())
+
+    def test_baidu_submission_files_and_verification_are_scoped_to_the_build(self):
+        for site_url in ('https://epubloom.com/', 'https://ficbase.github.io/transmute-web/'):
+            output = self.build(site_url=site_url, baidu_verification='code-Test_123')
+            expected = [site_url + 'zh/' + ('' if page == 'index.html' else page) for page in self.pages]
+            urls = [node.text for node in ET.parse(output / 'sitemap-zh.xml').findall('.//{*}loc')]
+            self.assertEqual(urls, expected)
+            self.assertEqual((output / 'baidu-urls.txt').read_text().splitlines(), expected)
+            self.assertEqual(len(urls), len(set(urls)))
+            self.assertIn('Sitemap: ' + site_url + 'sitemap-zh.xml', (output / 'robots.txt').read_text())
+            for page in (*self.pages, *('zh/' + p for p in self.pages)):
+                head = (output / page).read_text().split('</head>')[0]
+                self.assertEqual(head.count('<meta name="baidu-site-verification" content="code-Test_123">'), 1)
+            self.build(site_url=site_url, noindex=True, baidu_verification='code-Test_123')
+            self.assertNotIn('baidu-site-verification', (output / 'index.html').read_text())
+            self.build(site_url=site_url)
+            self.assertNotIn('baidu-site-verification', (output / 'index.html').read_text())
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.build(baidu_verification='"><script>invalid</script>')
 
     def test_translation_and_wasm_changes_propagate_through_module_versions(self):
         output = self.build()
@@ -120,6 +139,7 @@ class PrepareSiteTests(unittest.TestCase):
                     self.assertIn('hreflang="zh-Hans"', source)
                     self.assertIn('hreflang="x-default"', source)
                     self.assertEqual(source.count('<h1 '), 1)
+                    self.assertEqual(source.count('<meta name="applicable-device" content="pc,mobile">'), 1)
                     self.assertIn(f'data-language="{language}"', source)
                     title = re.search(r'<title[^>]*>(.*?)</title>', source).group(1)
                     self.assertNotIn(title, titles)

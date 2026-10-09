@@ -91,6 +91,28 @@ GitHub Pages 也可绑定独立域名；本仓库当前仅把它用于预览。�
 
 本次发布及 Search Console 的实际检查结果见 [2026-10-09 SEO 发布记录](docs/seo-audit-2026-10-09.md)。
 
+### 百度搜索接入
+
+中文入口为 `https://epubloom.com/zh/`，正文、标题和内部链接均直接写入静态 HTML，语言网址不会根据蜘蛛或 IP 自动跳转。所有页面声明 `applicable-device=pc,mobile`，由同一网址响应桌面与手机屏幕。
+
+发布目录提供：
+
+- `sitemap-zh.xml`：11 个中文规范网址，平铺的标准 XML 站点地图，不使用嵌套索引。
+- `baidu-urls.txt`：同一批中文网址，每行一条，供百度平台手动提交时复制。
+- `robots.txt`：允许抓取并声明完整站点地图及中文站点地图。
+
+在 [百度搜索资源平台](https://ziyuan.baidu.com/site/index) 添加 `https://epubloom.com/`，按实际功能选择网站类型，使用“HTML 标签验证”。取得标签的 `content` 值后，以 `BAIDU_SITE_VERIFICATION` 构建变量传入，脚本会在正式页面 head 中注入验证标签。变量仅接收验证码，不接收整段 HTML；未提供时不添加虚假标签，noindex 预览不会注入验证信息。验证成功后需要持续保留该配置，每次正式发布都应提供它。
+
+```bash
+SITE_URL=https://epubloom.com/ SITE_NOINDEX=0 \
+BAIDU_SITE_VERIFICATION=平台给出的content值 \
+ADSENSE_PUBLISHER_ID=自己的发布商ID python3 scripts/prepare-site.py
+```
+
+代码块中的验证值和发布商 ID 需替换为自己的实际配置。发布后先检查首页源码，再在平台完成验证。在“普通收录”中提交中文站点地图 `https://epubloom.com/sitemap-zh.xml`；如当前账号没有站点地图权限，可使用平台可用的手动提交入口，复制 `baidu-urls.txt` 的网址。实际权限、配额和提交状态以登录后的界面为准。后台 API token 属于凭据，不要写入网页、公开仓库或链接清单。
+
+接入过程及实际检查记录见 [百度 SEO 接入记录](docs/baidu-seo-2026-10-09.md)。验证、提交和抓取成功分别表示不同阶段，均不保证收录或排名。
+
 ### Google AdSense 申请与接入
 
 正式网站已配置 AdSense 连接代码，实际展示需等待网站审核通过及账号配置完成。补充说明页面不保证通过审核；Google 评估原创内容、使用体验及政策符合情况，见 [AdSense 资格要求](https://support.google.com/adsense/answer/9724) 和 [网站准备要求](https://support.google.com/adsense/answer/7299563)。应先确认真实文件转换可用、指南准确、正式域名和公开联系渠道正常。
