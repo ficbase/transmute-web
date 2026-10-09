@@ -12,7 +12,16 @@
 <header class="site-header shell">
   <a class="brand" href="index.html" aria-label="EpuBloom home" data-i18n-label="brand.home"><img src="favicon.svg" width="36" height="36" alt=""><span>EpuBloom<span class="brand-dot">.</span></span></a>
   <nav class="main-nav" aria-label="Main navigation" data-i18n-label="nav.label"><a href="index.html"><span data-i18n="nav.converter" >Converter</span></a><a href="guide.html" aria-current="page"><span data-i18n="nav.guide" >Guide</span></a><a href="about.html"><span data-i18n="nav.about" >About</span></a></nav>
-  <label class="language-control"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h12M9 3v2M5 5c1 5 4 8 8 10M13 5c-1 5-4 8-8 10M14 21l4-11 4 11M15.5 17h5"/></svg><select id="languageSelect" aria-label="Website language" data-i18n-label="language.label"><option value="en" lang="en">English</option><option value="zh" lang="zh-CN">简体中文</option></select></label>
+  <div class="language-control">
+    <button class="language-trigger" id="languageSelect" type="button" aria-label="Website language" data-i18n-label="language.label" aria-haspopup="menu" aria-expanded="false" aria-controls="languageMenu" disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h12M9 3v2M5 5c1 5 4 8 8 10M13 5c-1 5-4 8-8 10M14 21l4-11 4 11M15.5 17h5"/></svg>
+      <span data-language-current>English</span><svg class="language-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+    </button>
+    <div class="language-menu" id="languageMenu" role="menu" aria-label="Website language" data-i18n-label="language.label" hidden>
+      <button class="language-option" type="button" role="menuitemradio" aria-checked="true" data-language-option="en" lang="en" tabindex="-1">English<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4 10-10"/></svg></button>
+      <button class="language-option" type="button" role="menuitemradio" aria-checked="false" data-language-option="zh" lang="zh-CN" tabindex="-1">简体中文<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4 10-10"/></svg></button>
+    </div>
+  </div>
 </header>
 <main id="main" class="document-shell shell">
 <div class="document-heading"><p class="eyebrow" data-i18n="article.eyebrow">THE READING ROOM</p><h1 data-i18n="article.epub.heading">How to convert EPUB to TXT.</h1></div>

@@ -466,7 +466,12 @@ function renderLanguage() {
     document.querySelectorAll(`[${attribute}]`).forEach(element => element.setAttribute(target, t(element.getAttribute(attribute))));
   }
   syncPageLanguage();
-  document.querySelectorAll('#languageSelect').forEach(select => { select.value = language; });
+  document.querySelectorAll('[data-language-current]').forEach(label => {
+    label.textContent = language === 'zh' ? '简体中文' : 'English';
+  });
+  document.querySelectorAll('[data-language-option]').forEach(option => {
+    option.setAttribute('aria-checked', String(option.dataset.languageOption === language));
+  });
 }
 
 export function setLanguage(next) {
@@ -478,7 +483,56 @@ export function setLanguage(next) {
 }
 
 renderLanguage();
-document.querySelector('#languageSelect')?.addEventListener('change', event => setLanguage(event.target.value));
+const languageTrigger = document.querySelector('#languageSelect');
+const languageMenu = document.querySelector('#languageMenu');
+const languageOptions = [...document.querySelectorAll('[data-language-option]')];
+function closeLanguageMenu(restoreFocus = false) {
+  if (!languageMenu) return;
+  languageMenu.hidden = true;
+  languageTrigger.setAttribute('aria-expanded', 'false');
+  if (restoreFocus) languageTrigger.focus();
+}
+function openLanguageMenu(index = languageOptions.findIndex(option => option.dataset.languageOption === language)) {
+  languageMenu.hidden = false;
+  languageTrigger.setAttribute('aria-expanded', 'true');
+  languageOptions[index]?.focus();
+}
+languageTrigger?.addEventListener('click', () => {
+  if (languageMenu.hidden) openLanguageMenu();
+  else closeLanguageMenu();
+});
+languageTrigger?.addEventListener('keydown', event => {
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    openLanguageMenu(event.key === 'ArrowDown' ? 0 : languageOptions.length - 1);
+  }
+});
+languageOptions.forEach(option => option.addEventListener('click', () => {
+  setLanguage(option.dataset.languageOption);
+  closeLanguageMenu(true);
+}));
+languageMenu?.addEventListener('keydown', event => {
+  const index = languageOptions.indexOf(document.activeElement);
+  let next;
+  if (event.key === 'ArrowDown') next = (index + 1) % languageOptions.length;
+  if (event.key === 'ArrowUp') next = (index - 1 + languageOptions.length) % languageOptions.length;
+  if (event.key === 'Home') next = 0;
+  if (event.key === 'End') next = languageOptions.length - 1;
+  if (next !== undefined) {
+    event.preventDefault();
+    languageOptions[next].focus();
+  } else if (event.key === 'Escape') {
+    event.preventDefault();
+    closeLanguageMenu(true);
+  } else if (event.key === 'Tab') closeLanguageMenu(true);
+});
+const languageControl = languageTrigger?.closest('.language-control');
+document.addEventListener('click', event => {
+  if (!languageControl?.contains(event.target)) closeLanguageMenu();
+});
+document.addEventListener('focusin', event => {
+  if (!languageControl?.contains(event.target)) closeLanguageMenu();
+});
 document.querySelectorAll('[data-language-link]').forEach(link => link.addEventListener('click', event => {
   if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
   event.preventDefault();
