@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="article.epub.title">How to Convert EPUB to TXT: Extract Editable Ebook Text | EpuBloom</title>
+<meta name="description" data-i18n-content="article.epub.description" content="Extract readable text from an EPUB in your browser. Learn what TXT preserves, what formatting is lost, and how to check chapters, DRM, and image-only books.">
+<!-- site-metadata -->
+<link rel="icon" type="image/svg+xml" href="favicon.svg"><link rel="stylesheet" href="site.css">
+<script type="module" src="i18n.js"></script>
+</head><body class="document-page">
+<a class="skip-link" href="#main" data-i18n="skip">Skip to content</a>
+<header class="site-header shell">
+  <a class="brand" href="index.html" aria-label="EpuBloom home" data-i18n-label="brand.home"><img src="favicon.svg" width="36" height="36" alt=""><span>EpuBloom<span class="brand-dot">.</span></span></a>
+  <nav class="main-nav" aria-label="Main navigation" data-i18n-label="nav.label"><a href="index.html"><span data-i18n="nav.converter" >Converter</span></a><a href="guide.html" aria-current="page"><span data-i18n="nav.guide" >Guide</span></a><a href="about.html"><span data-i18n="nav.about" >About</span></a></nav>
+  <label class="language-control"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h12M9 3v2M5 5c1 5 4 8 8 10M13 5c-1 5-4 8-8 10M14 21l4-11 4 11M15.5 17h5"/></svg><select id="languageSelect" aria-label="Website language" data-i18n-label="language.label"><option value="en" lang="en">English</option><option value="zh" lang="zh-CN">简体中文</option></select></label>
+</header>
+<main id="main" class="document-shell shell">
+<div class="document-heading"><p class="eyebrow" data-i18n="article.eyebrow">THE READING ROOM</p><h1 data-i18n="article.epub.heading">How to convert EPUB to TXT.</h1></div>
+<div class="article-actions"><a class="article-cta" href="index.html#converter" data-i18n="article.epub.action">Convert an EPUB file ↗</a><a class="text-link" href="guide.html" data-i18n="article.back">All conversion guides ↗</a></div>
+<article class="document-content" data-i18n-html="article.epub.body"><p class="note">Use an EPUB you own or have permission to process. EpuBloom does not remove DRM or recognize text inside images.</p>
+<p>EPUB bundles text, images, navigation, and styling into an ebook. TXT is useful when you need editable words in a text editor. Extracting text is a change of format: it is not a complete backup of the ebook.</p>
+<h2>Convert an EPUB in three steps</h2><ol><li>Open the <a href="index.html#converter">converter</a> and select a file ending in .epub.</li><li>Click “Convert to TXT.” The ebook is read and processed in your browser.</li><li>Download the .txt file and open it in a text editor. Keep the original EPUB.</li></ol><p>The tool uses the file extension to choose the direction. There is no need to edit the book-details form when extracting text.</p>
+<h2>What the TXT result contains</h2><p>The result includes the readable book title, author, chapter headings, and body text that the parser can extract. For an English-language EPUB, title and author headers use <code>Title:</code> and <code>Author:</code>. Books whose language metadata begins with <code>zh</code> use Chinese header formatting.</p>
+<pre>Title: The Little Journey
+Author: EpuBloom
+
+Chapter 1 — A quiet morning
+The notebook was still empty.</pre>
+<h2>What plain text leaves behind</h2><ul><li>Cover images, illustrations, and other pictures.</li><li>Fonts, colors, margins, and page layouts.</li><li>Clickable links and a navigable table of contents.</li><li>Table layout and other visual relationships.</li></ul><p>Line breaks and extracted reading order can vary with the EPUB’s structure. Compare important passages and chapter order against the original instead of assuming every element has been preserved.</p>
+<h2>If conversion fails or text is missing</h2><p>A DRM-protected ebook may not be readable by this tool. Image-only pages contain no ordinary text to extract, and this converter does not provide OCR. A damaged or unsupported EPUB structure can also cause errors or missing content.</p><p>Check that the original opens in an ebook reader. If it does but conversion still fails, report the browser version and error through <a href="contact.html">support</a>. Don’t post a private or copyrighted ebook in a public issue.</p>
+<h2>Can I turn the TXT back into an EPUB?</h2><p>Yes. Follow the <a href="txt-to-epub.html">TXT to EPUB guide</a> to prepare chapter headings, book details, and a new cover. This creates a new ebook; the original images and layout cannot be recovered from the text alone.</p></article>
+</main>
+<footer class="site-footer shell"><div><a class="footer-brand" href="index.html">EpuBloom.</a><p data-i18n="footer.tagline" >A little less formatting. A little more reading.</p></div><nav aria-label="Footer navigation" data-i18n-label="nav.footer"><a href="guide.html"><span data-i18n="nav.guide" >Guide</span></a><a href="contact.html"><span data-i18n="nav.contact" >Contact</span></a><a href="privacy.html"><span data-i18n="nav.privacy" >Privacy</span></a><a href="https://github.com/ficbase/transmute-web">GitHub ↗</a></nav><p class="footer-credit"><span data-i18n="footer.powered" >Built with</span> <a href="https://github.com/ficbase/transmute">Transmute</a> · <span data-i18n="footer.local" >Made to stay on your device</span></p></footer>
+</body></html>
