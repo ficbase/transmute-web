@@ -79,6 +79,7 @@ function epubBook(source) {
 export function createReader({ getSource }) {
   const dialog = document.querySelector('#onlineReader');
   const find = selector => dialog.querySelector(selector);
+  const shell = find('#readerShell');
   const viewport = find('#readerViewport');
   const article = find('#readerArticle');
   const message = find('#readerMessage');
@@ -90,6 +91,8 @@ export function createReader({ getSource }) {
   const launcher = document.querySelector('#readBtn');
   let book = null, file = null, fingerprint = '', chapterIndex = 0, ratio = 0;
   let generation = 0, rendering = false, saveTimer;
+  let wheelTime = 0, wheelDirection = 0, wheelDistance = 0, wheelNeedsPause = false;
+  let boundaryCooldown = 0, touch = null, noticeTimer;
   let assetUrls = [];
   const saved = safeRead('epubloom.reader.preferences') || {};
   const preferences = { font: clamp(saved.font || 20, 14, 32), theme: ['paper','light','dark'].includes(saved.theme) ? saved.theme : 'paper' };
@@ -108,6 +111,41 @@ export function createReader({ getSource }) {
     toc.hidden = !open;
     dialog.classList.toggle('toc-open', open);
     find('#readerTocToggle').setAttribute('aria-expanded', String(open));
+  }
+  function syncToolbarLabels() {
+    const collapsed = dialog.classList.contains('toolbar-collapsed');
+    const toggle = find('#readerToolbarToggle');
+    const key = collapsed ? 'reader.expandToolbar' : 'reader.collapseToolbar';
+    toggle.dataset.i18nLabel = key;
+    toggle.setAttribute('aria-label', t(key));
+    toggle.title = t(key);
+  }
+  function setToolbarCollapsed(collapsed) {
+    dialog.classList.toggle('toolbar-collapsed', collapsed);
+    find('#readerToolbarPanel').inert = collapsed;
+    find('#readerToolbarPanel').setAttribute('aria-hidden', String(collapsed));
+    find('#readerToolbarToggle').setAttribute('aria-expanded', String(!collapsed));
+    syncToolbarLabels();
+  }
+  function resetBoundaryGesture() {
+    wheelDirection = 0; wheelDistance = 0;
+    wheelNeedsPause = true;
+    boundaryCooldown = performance.now() + 500;
+    if (touch) touch.used = true;
+  }
+  function boundaryChapter(direction) {
+    if (!book || rendering || !message.hidden || performance.now() < boundaryCooldown) return null;
+    const atEdge = direction > 0
+      ? viewport.scrollTop + viewport.clientHeight >= viewport.scrollHeight - 2
+      : viewport.scrollTop <= 2;
+    const destination = chapterIndex + direction;
+    return atEdge && destination >= 0 && destination < book.chapters.length ? destination : null;
+  }
+  function crossBoundary(direction) {
+    const destination = boundaryChapter(direction);
+    if (destination === null) return false;
+    void navigate(destination, direction < 0 ? 1 : 0);
+    return true;
   }
   function renderToc() {
     tocList.replaceChildren();
@@ -237,6 +275,7 @@ export function createReader({ getSource }) {
   async function navigate(index, restoreRatio = 0, hash = '') {
     if (!book || index < 0 || index >= book.chapters.length) return;
     savePosition();
+    resetBoundaryGesture();
     const token = ++generation;
     rendering = true;
     chapterIndex = index;
@@ -279,7 +318,9 @@ export function createReader({ getSource }) {
     savePosition();
     ++generation;
     rendering = false;
-    if (document.fullscreenElement === dialog) void document.exitFullscreen().catch(() => {});
+    if (fullscreenElement() === shell) void exitFullscreen().catch(() => {});
+    touch = null;
+    clearTimeout(noticeTimer); find('#readerNotice').hidden = true;
     dialog.close();
     document.body.classList.remove('reader-open');
     launcher.focus({ preventScroll: true });
@@ -287,6 +328,7 @@ export function createReader({ getSource }) {
   async function open() {
     if (dialog.open) return;
     dialog.showModal(); document.body.classList.add('reader-open');
+    setToolbarCollapsed(false);
     setToc(!matchMedia('(max-width:760px)').matches);
     applyPreferences();
     const token = ++generation;
@@ -344,10 +386,48 @@ export function createReader({ getSource }) {
   previous.addEventListener('click', () => void navigate(chapterIndex - 1));
   next.addEventListener('click', () => void navigate(chapterIndex + 1));
   find('#readerTocToggle').addEventListener('click', () => setToc(toc.hidden));
+  find('#readerToolbarToggle').addEventListener('click', () => setToolbarCollapsed(!dialog.classList.contains('toolbar-collapsed')));
   search.addEventListener('input', renderToc);
   viewport.addEventListener('scroll', () => { updateProgress(); clearTimeout(saveTimer); saveTimer = setTimeout(savePosition, 300); }, { passive: true });
+  viewport.addEventListener('wheel', event => {
+    if (event.ctrlKey || event.metaKey || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+    const now = performance.now(), pause = now - wheelTime;
+    wheelTime = now;
+    if (pause > 180) { wheelNeedsPause = false; wheelDistance = 0; }
+    if (wheelNeedsPause || rendering) return;
+    const direction = Math.sign(event.deltaY);
+    if (boundaryChapter(direction) === null) { wheelDistance = 0; return; }
+    if (event.cancelable) event.preventDefault();
+    if (direction !== wheelDirection) wheelDistance = 0;
+    wheelDirection = direction;
+    const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? viewport.clientHeight : 1;
+    wheelDistance += Math.abs(event.deltaY) * unit;
+    if (wheelDistance >= 60) crossBoundary(direction);
+  }, { passive: false });
+  viewport.addEventListener('touchstart', event => {
+    const point = event.touches.length === 1 && event.touches[0];
+    touch = point ? { x: point.clientX, y: point.clientY, direction: 0, distance: 0, used: false } : null;
+  }, { passive: true });
+  viewport.addEventListener('touchmove', event => {
+    if (!touch || touch.used || event.touches.length !== 1) return;
+    const point = event.touches[0], dy = touch.y - point.clientY, dx = touch.x - point.clientX;
+    touch.x = point.clientX; touch.y = point.clientY;
+    if (Math.abs(dy) <= Math.abs(dx)) { touch.distance = 0; return; }
+    const direction = Math.sign(dy);
+    if (boundaryChapter(direction) === null) { touch.distance = 0; return; }
+    if (event.cancelable) event.preventDefault();
+    if (direction !== touch.direction) touch.distance = 0;
+    touch.direction = direction; touch.distance += Math.abs(dy);
+    if (touch.distance >= 60) crossBoundary(direction);
+  }, { passive: false });
+  for (const name of ['touchend', 'touchcancel']) viewport.addEventListener(name, () => { touch = null; }, { passive: true });
   window.addEventListener('beforeunload', savePosition);
-  window.addEventListener('resize', () => { if (dialog.open) updateProgress(); });
+  // Keep the same relative reading position while the toolbar animates or fullscreen resizes.
+  new ResizeObserver(() => {
+    if (!dialog.open || rendering || !book) return;
+    viewport.scrollTop = ratio * Math.max(0, viewport.scrollHeight - viewport.clientHeight);
+    updateProgress();
+  }).observe(viewport);
   dialog.addEventListener('keydown', event => {
     if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey || event.target.matches('input, textarea, [contenteditable]')) return;
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
@@ -360,10 +440,37 @@ export function createReader({ getSource }) {
   });
   dialog.querySelectorAll('[data-reader-theme]').forEach(button => button.addEventListener('click', () => { preferences.theme = button.dataset.readerTheme; applyPreferences(); }));
   const fullscreen = find('#readerFullscreen');
-  fullscreen.hidden = !document.fullscreenEnabled;
+  const fullscreenElement = () => document.fullscreenElement || document.webkitFullscreenElement;
+  const requestFullscreen = shell.requestFullscreen || shell.webkitRequestFullscreen;
+  const exitFullscreen = async () => {
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    if (exit) await exit.call(document);
+  };
+  function syncFullscreen() {
+    const active = fullscreenElement() === shell;
+    const key = active ? 'reader.exitFullscreen' : 'reader.enterFullscreen';
+    fullscreen.dataset.i18nLabel = key;
+    fullscreen.setAttribute('aria-label', t(key));
+    fullscreen.setAttribute('aria-pressed', String(active));
+    fullscreen.title = t(key);
+  }
+  fullscreen.hidden = !requestFullscreen || !(document.fullscreenEnabled || document.webkitFullscreenEnabled);
   fullscreen.addEventListener('click', async () => {
-    try { if (document.fullscreenElement) await document.exitFullscreen(); else await dialog.requestFullscreen(); } catch { /* The full-window reader remains available. */ }
+    fullscreen.disabled = true;
+    try {
+      if (fullscreenElement() === shell) await exitFullscreen();
+      else await requestFullscreen.call(shell);
+    } catch {
+      const notice = find('#readerNotice');
+      notice.textContent = t('reader.fullscreenUnavailable'); notice.hidden = false;
+      clearTimeout(noticeTimer); noticeTimer = setTimeout(() => { notice.hidden = true; }, 5000);
+    } finally { fullscreen.disabled = false; syncFullscreen(); }
   });
-  window.addEventListener('epubloom:languagechange', () => { if (book) { find('#readerBookTitle').textContent = book.title; renderToc(); updateProgress(); } });
+  for (const name of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(name, syncFullscreen);
+  syncFullscreen(); syncToolbarLabels();
+  window.addEventListener('epubloom:languagechange', () => {
+    syncFullscreen(); syncToolbarLabels();
+    if (book) { find('#readerBookTitle').textContent = book.title; renderToc(); updateProgress(); }
+  });
   return { reset };
 }
