@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="article.chapters.title">TXT to EPUB Chapters: Format a Working Table of Contents | EpuBloom</title>
+<meta name="description" data-i18n-content="article.chapters.description" content="Prepare TXT chapter headings for an EPUB table of contents. See recognized English and Chinese formats, sample text, and fixes for missing or extra chapters.">
+<!-- site-metadata -->
+<link rel="icon" type="image/svg+xml" href="favicon.svg"><link rel="stylesheet" href="site.css">
+<script type="module" src="i18n.js"></script>
+</head><body class="document-page">
+<a class="skip-link" href="#main" data-i18n="skip">Skip to content</a>
+<header class="site-header shell">
+  <a class="brand" href="index.html" aria-label="EpuBloom home" data-i18n-label="brand.home"><img src="favicon.svg" width="36" height="36" alt=""><span>EpuBloom<span class="brand-dot">.</span></span></a>
+  <nav class="main-nav" aria-label="Main navigation" data-i18n-label="nav.label"><a href="index.html"><span data-i18n="nav.converter" >Converter</span></a><a href="guide.html" aria-current="page"><span data-i18n="nav.guide" >Guide</span></a><a href="about.html"><span data-i18n="nav.about" >About</span></a></nav>
+  <div class="language-control">
+    <button class="language-trigger" id="languageSelect" type="button" aria-label="Website language" data-i18n-label="language.label" aria-haspopup="menu" aria-expanded="false" aria-controls="languageMenu" disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h12M9 3v2M5 5c1 5 4 8 8 10M13 5c-1 5-4 8-8 10M14 21l4-11 4 11M15.5 17h5"/></svg>
+      <span data-language-current>English</span><svg class="language-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+    </button>
+    <div class="language-menu" id="languageMenu" role="menu" aria-label="Website language" data-i18n-label="language.label" hidden>
+      <button class="language-option" type="button" role="menuitemradio" aria-checked="true" data-language-option="en" lang="en" tabindex="-1">English<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4 10-10"/></svg></button>
+      <button class="language-option" type="button" role="menuitemradio" aria-checked="false" data-language-option="zh" lang="zh-CN" tabindex="-1">简体中文<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4 10-10"/></svg></button>
+    </div>
+  </div>
+</header>
+<main id="main" class="document-shell shell"><div class="document-heading"><p class="eyebrow" data-i18n="article.eyebrow">THE READING ROOM</p><h1 data-i18n="article.chapters.heading">Format TXT chapters for a working EPUB contents page.</h1></div><div class="article-actions"><a class="article-cta" href="index.html#converter" data-i18n="article.chapters.action">Build an EPUB table of contents ↗</a><a class="text-link" href="guide.html" data-i18n="article.back">All conversion guides ↗</a></div><article class="document-content" data-i18n-html="article.chapters.body"><p class="note">The table of contents is built from headings in your TXT, not from page numbers. Put each chapter heading on a separate line.</p><p>Plain text has no built-in chapter structure. EpuBloom checks each trimmed line for supported heading patterns, splits the book into chapters, and uses those headings in the EPUB navigation.</p>
+<h2>Heading formats the converter recognizes</h2><div class="table-scroll"><table><thead><tr><th>TXT line</th><th>Recognized?</th><th>Reason</th></tr></thead><tbody><tr><td><code>Chapter 1 — A quiet morning</code></td><td>Yes</td><td>Begins with <code>Chapter </code>, including the space.</td></tr><tr><td><code>CHAPTER 2 — The river</code></td><td>Yes</td><td>The uppercase prefix is supported.</td></tr><tr><td><code># Afterword</code></td><td>Yes</td><td>Begins with a hash followed by a space.</td></tr><tr><td><code>第一章 清晨</code> / <code>第2节 河岸</code></td><td>Yes</td><td>Numbered Chinese chapter or section markers.</td></tr><tr><td><code>chapter 1</code> / <code>Chapter1</code></td><td>No</td><td>Lowercase or missing the required space.</td></tr><tr><td><code>1. A quiet morning</code></td><td>No</td><td>A numbered paragraph alone is not a chapter marker.</td></tr></tbody></table></div>
+<p>Chinese markers can use Arabic digits or supported Chinese numerals, followed by 章、节、部、卷、篇 or 集. Ordinary prose beginning with these patterns can also be mistaken for a heading. The tool detects patterns; it does not understand the meaning of the sentence.</p>
+<h2>A small example you can copy</h2><pre>Title: River Notes
+Author: EpuBloom
+
+Chapter 1 — A quiet morning
+The notebook was still empty.
+
+Chapter 2 — Along the river
+We stopped beside the bridge.
+
+# Afterword
+There was more to write tomorrow.</pre><p><a href="examples/chapters-en.txt" download>Download this chapter-formatting sample</a>, select it in the <a href="index.html#converter">converter</a>, and set the book language to <code>en</code>. Check the detected title and author before exporting.</p>
+<h2>Why is a chapter missing from the contents?</h2><p>Check the exact heading prefix, capitalization, and spaces. A heading placed at the end of a body paragraph is not a separate line. Use a supported prefix rather than expecting a bare number, a decorative separator, or a bold-looking Unicode font to create a chapter.</p><p>A book with no recognized headings uses a default chapter. English books use “Chapter 1”; books with a language code beginning with <code>zh</code> use “第1章.” Changing the website language does not translate your headings.</p>
+<h2>Why is there an unexpected first chapter?</h2><p>Text before the first recognized heading may become an opening chapter. Title and author lines can remain in the body even after they have filled Book details. Review the first pages and remove an unwanted duplicate title block from a copy of the source, while keeping the desired metadata in the form.</p>
+<h2>Check the EPUB in a reader</h2><ol><li>Open the downloaded book in your intended reader.</li><li>Open its table of contents and check chapter titles and order.</li><li>Follow several links and confirm each lands at the correct heading.</li><li>Check the beginning, middle, and end of the body against the TXT.</li></ol><p>For image and text styling on the first page, use the <a href="epub-cover.html">cover layout guide</a>. If chapter names themselves are garbled, fix the <a href="fix-text-encoding.html">text encoding</a> first. The <a href="txt-to-epub.html">TXT to EPUB guide</a> covers the complete conversion.</p></article></main>
+<footer class="site-footer shell"><div><a class="footer-brand" href="index.html">EpuBloom.</a><p data-i18n="footer.tagline" >A little less formatting. A little more reading.</p></div><nav aria-label="Footer navigation" data-i18n-label="nav.footer"><a href="guide.html"><span data-i18n="nav.guide" >Guide</span></a><a href="contact.html"><span data-i18n="nav.contact" >Contact</span></a><a href="privacy.html"><span data-i18n="nav.privacy" >Privacy</span></a><a href="https://github.com/ficbase/transmute-web">GitHub ↗</a></nav><p class="footer-credit"><span data-i18n="footer.powered" >Built with</span> <a href="https://github.com/ficbase/transmute">Transmute</a> · <span data-i18n="footer.local" >Made to stay on your device</span></p></footer>
+</body></html>

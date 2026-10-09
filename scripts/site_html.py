@@ -83,7 +83,7 @@ def page_path(page, language):
     return ('zh/' if language == 'zh' else '') + ('' if page == 'index.html' else page)
 
 
-def render_page(source, page, language, messages, site_url, pages, versions):
+def render_page(source, page, language, messages, site_url, pages, versions, noindex=False):
     document = Document(source)
     locale = 'zh-CN' if language == 'zh' else 'en'
     base = urlsplit(site_url).path
@@ -136,6 +136,7 @@ def render_page(source, page, language, messages, site_url, pages, versions):
     canonical = site_url + page_path(page, language)
     en_url = site_url + page_path(page, 'en')
     zh_url = site_url + page_path(page, 'zh')
+    social_image = site_url + 'assets/social-card.png?v=' + versions['assets/social-card.png']
     meta = f'''<link rel="canonical" href="{escape(canonical, quote=True)}">
 <link rel="alternate" hreflang="en" href="{escape(en_url, quote=True)}">
 <link rel="alternate" hreflang="zh-Hans" href="{escape(zh_url, quote=True)}">
@@ -146,14 +147,51 @@ def render_page(source, page, language, messages, site_url, pages, versions):
 <meta property="og:description" data-i18n-content="{next(node.attrs['data-i18n-content'] for node in nodes if node.tag == 'meta' and node.attrs.get('name') == 'description')}" content="{escape(description, quote=True)}">
 <meta property="og:url" content="{escape(canonical, quote=True)}">
 <meta property="og:locale" content="{'zh_CN' if language == 'zh' else 'en_US'}">
-<meta name="twitter:card" content="summary">
+<meta property="og:image" content="{escape(social_image, quote=True)}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:alt" data-i18n-content="share.alt" content="{escape(strings['share.alt'], quote=True)}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="{escape(social_image, quote=True)}">
+<meta name="robots" content="{'noindex, follow, ' if noindex else ''}max-image-preview:large">
 <meta name="twitter:title" content="{escape(title, quote=True)}">
 <meta name="twitter:description" content="{escape(description, quote=True)}">'''
     graph = [
         {'@type': 'WebSite', '@id': site_url + '#website', 'url': site_url, 'name': 'EpuBloom', 'inLanguage': ['en', 'zh-CN']},
+        {'@type': 'Organization', '@id': site_url + '#organization', 'name': 'EpuBloom', 'url': site_url},
         {'@type': 'WebPage', '@id': canonical + '#webpage', 'url': canonical, 'name': title,
          'description': description, 'inLanguage': locale, 'isPartOf': {'@id': site_url + '#website'}},
     ]
+    if page != 'index.html':
+        main = next(node for node in nodes if node.tag == 'main')
+        heading = next(node for node in nodes if node.tag == 'h1')
+        heading_key = heading.attrs['data-i18n']
+        items = [(strings['breadcrumb.home'], site_url + page_path('index.html', language), 'breadcrumb.home')]
+        is_article = any(node.tag == 'article' and node.attrs.get('data-i18n-html', '').startswith('article.') for node in nodes)
+        if is_article:
+            items.append((strings['nav.guide'], site_url + page_path('guide.html', language), 'nav.guide'))
+        items.append((strings[heading_key], canonical, heading_key))
+        links = ''.join(f'<li>' + (f'<span aria-current="page" data-breadcrumb-item data-i18n="{key}">{escape(name)}</span>' if index == len(items) - 1 else
+                                  f'<a href="{escape(url, quote=True)}" data-breadcrumb-item data-i18n="{key}">{escape(name)}</a>') + '</li>'
+                        for index, (name, url, key) in enumerate(items))
+        main.children[0:0] = Document(f'<nav class="breadcrumbs" aria-label="{escape(strings["breadcrumb.label"], quote=True)}" data-i18n-label="breadcrumb.label"><ol>{links}</ol></nav>').root.children
+        graph[2]['breadcrumb'] = {'@id': canonical + '#breadcrumb'}
+        graph.append({'@type': 'BreadcrumbList', '@id': canonical + '#breadcrumb', 'itemListElement': [
+            {'@type': 'ListItem', 'position': index + 1, 'name': name, 'item': url} for index, (name, url, key) in enumerate(items)]})
+        if is_article:
+            graph.append({'@type': 'Article', '@id': canonical + '#article', 'headline': strings[heading_key],
+                          'description': description, 'inLanguage': locale, 'mainEntityOfPage': {'@id': canonical + '#webpage'},
+                          'author': {'@id': site_url + '#organization'}, 'publisher': {'@id': site_url + '#organization'}})
+            article = next(node for node in main.walk() if node.tag == 'article')
+            position = main.children.index(article)
+            main.children[position:position] = Document(f'<p class="article-byline"><a href="{escape(site_url + page_path("about.html", language), quote=True)}" data-i18n="article.byline">{escape(strings["article.byline"])}</a></p>').root.children
+            headings = [node for node in article.walk() if node.tag == 'h2']
+            for index, node in enumerate(headings, 1):
+                node.attrs['id'] = f'section-{index}'
+            items = ''.join(f'<li><a href="#section-{index}">{"".join(child.render() if isinstance(child, Element) else child for child in node.children)}</a></li>' for index, node in enumerate(headings, 1))
+            position = main.children.index(article)
+            main.children[position:position] = Document(f'<nav class="article-toc" aria-label="{escape(strings["article.contents"], quote=True)}" data-i18n-label="article.contents"><p data-i18n="article.contents">{escape(strings["article.contents"])}</p><ol>{items}</ol></nav>').root.children
     if page == 'index.html':
         graph.append({'@type': 'WebApplication', 'name': 'EpuBloom', 'url': canonical,
                       'applicationCategory': 'UtilitiesApplication', 'operatingSystem': 'Any',

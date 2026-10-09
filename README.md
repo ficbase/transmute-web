@@ -8,12 +8,12 @@
 
 - **txt → epub**: 自动检测章节（中英文编号）、提取标题/作者、可编辑元数据（书名/作者/语言/简介/出版社/标识符/日期/版权/标签）、可选自定义封面
 - **epub → txt**: 还原纯文本，保留段落分行和全角空格缩进
-- **自动编码检测**: BOM → UTF-8 验证 → GBK 回退，兼容旧版中文 txt
+- **自动编码检测**: BOM → UTF-8 严格验证 → GB18030 严格解码，兼容旧版中文 txt
 - **纯本地处理**: WASM 在浏览器内运行，文件不上传
 
 ## 界面与语言
 
-首次访问默认英语，支持英语和简体中文切换。语言偏好保存在当前浏览器的 localStorage；存储被禁用时仍可在当前页面切换。切换语言不会清除所选文件、封面、转换结果或已编辑的书籍信息。书籍语言与界面语言独立设置。
+正式网站 `/` 默认英语，`/zh/` 使用简体中文；明确的语言网址优先于浏览器中保存的偏好。语言选择保存在 localStorage，用于无语言标记的源码预览；存储被禁用时仍可在当前页面切换。切换语言不会清除所选文件、封面、转换结果或已编辑的书籍信息。书籍语言与界面语言独立设置。
 
 页面文案、标题、描述、按钮和状态提示统一维护在 `i18n.js`。HTML 保留默认英文正文，让说明页面在 JavaScript 不可用时也能阅读。`converter.js` 管理转换交互，`site.css` 提供所有页面的响应式样式。英文示例位于 `examples/sample-en.txt`，中文示例位于 `examples/sample.txt`。
 
@@ -78,13 +78,18 @@ PR 会检查构建；推送至 main 分支后 GitHub Actions 自动构建 WASM�
 
 ### 搜索收录与内容维护
 
-正式构建为 8 个页面生成英文版本与 `/zh/` 简体中文版本，共 16 个可独立访问的页面。正文在打包时写入 HTML，不需要搜索引擎执行语言切换；每页包含自己的 canonical、双向 hreflang（en / zh-Hans / x-default）、分享标题与描述，以及与可见内容一致的 JSON-LD。首页保持英文默认，已保存的语言选择会保留；切换时同步地址与内部链接，并保留当前文件和转换结果。
+正式构建为 11 个页面生成英文版本与 `/zh/` 简体中文版本，共 22 个可独立访问的页面。正文在打包时写入 HTML，不需要搜索引擎执行语言切换；每页包含自己的 canonical、双向 hreflang（en / zh-Hans / x-default）、分享标题与描述，以及与可见内容一致的 JSON-LD。明确的英文与中文网址保持对应语言；切换时同步地址与内部链接，并保留当前文件和转换结果。
 
-- 实用指南：`txt-to-epub.html`、`epub-to-txt.html`、`fix-text-encoding.html`，从首页和完整指南链接进入。
+- 实用指南：`txt-to-epub.html`、`epub-to-txt.html`、`fix-text-encoding.html`、`gbk-to-utf8.html`、`epub-cover.html`、`txt-chapters.html`，从首页和完整指南链接进入。编码、封面与目录指南根据实际功能编写，目录指南提供可下载示例。
+- 文章提供可见面包屑、正文目录与 EpuBloom 署名，结构化数据与正文一致。分享卡使用 1200 × 630 PNG，支持大图预览。
+- GitHub Pages 预览构建设置 `SITE_NOINDEX=1`；正式服务器构建使用 `SITE_NOINDEX=0`。预览页面允许抓取以读取 noindex，正式站点保持可索引。
+- 服务器配置参考 `deploy/nginx/epubloom.conf`：HTTP/www 与首页别名永久跳转、真实 404、CSS/JS/WASM 压缩及一小时缓存。页面需重新验证缓存；替换配置前备份并检查 Nginx 语法，保留其他站点和证书续期。
 - `i18n.js` 顶部的 `messages` 保持标准 JSON 对象，打包脚本和浏览器共用这份文案。新增页面时同时更新 `PAGES`、浏览器 `pageNames`、中英文文案及内部链接。
 - 所有页面使用完整、真实的功能说明，不填写虚构评分或评论。WebApplication 数据描述免费工具，并不保证获得 Google 富媒体结果。
 - 在 Google Search Console 验证 `epubloom.com` 网域资源后，提交 `https://epubloom.com/sitemap.xml`。保留验证用 DNS TXT 记录。站点地图和提交收录请求均不保证索引或排名。
 - 后续根据 Search Console 的真实展示、点击与搜索词完善内容；更改内容后重新打包并部署，避免只改浏览器文案而未更新静态页面。
+
+本次发布及 Search Console 的实际检查结果见 [2026-10-09 SEO 发布记录](docs/seo-audit-2026-10-09.md)。
 
 ### Google AdSense 申请与接入
 

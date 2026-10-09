@@ -22,7 +22,8 @@ class PrepareSiteTests(unittest.TestCase):
         for script in ('prepare-site.py', 'site_html.py'):
             shutil.copy2(repo / 'scripts' / script, self.root / 'scripts' / script)
         self.pages = ('index.html', 'guide.html', 'about.html', 'contact.html', 'privacy.html',
-                      'txt-to-epub.html', 'epub-to-txt.html', 'fix-text-encoding.html')
+                      'txt-to-epub.html', 'epub-to-txt.html', 'fix-text-encoding.html',
+                      'gbk-to-utf8.html', 'epub-cover.html', 'txt-chapters.html')
         for page in self.pages:
             shutil.copy2(repo / page, self.root / page)
         shutil.copy2(repo / 'i18n.js', self.root / 'i18n.js')
@@ -36,10 +37,12 @@ class PrepareSiteTests(unittest.TestCase):
         (self.root / 'examples').mkdir()
         (self.root / 'examples/sample.txt').write_text('示例')
         (self.root / 'examples/sample-en.txt').write_text('sample')
+        (self.root / 'assets').mkdir()
+        shutil.copy2(repo / 'assets/social-card.png', self.root / 'assets/social-card.png')
         (self.root / '.key').write_text('private-test-fixture')
 
-    def build(self, publisher='', site_url='https://epubloom.com/'):
-        environment = dict(os.environ, SITE_URL=site_url, ADSENSE_PUBLISHER_ID=publisher)
+    def build(self, publisher='', site_url='https://epubloom.com/', noindex=False):
+        environment = dict(os.environ, SITE_URL=site_url, ADSENSE_PUBLISHER_ID=publisher, SITE_NOINDEX='1' if noindex else '0')
         subprocess.run([sys.executable, str(self.root / 'scripts/prepare-site.py')], env=environment, check=True, capture_output=True)
         return self.root / 'dist'
 
@@ -53,6 +56,7 @@ class PrepareSiteTests(unittest.TestCase):
         self.assertEqual(public, {
             *self.pages, *('zh/' + page for page in self.pages),
             'site.css', 'favicon.svg', 'converter.js', 'cover-editor.js', 'i18n.js', 'examples/sample.txt', 'examples/sample-en.txt',
+            'assets/social-card.png',
             'pkg/transmute_web.js', 'pkg/transmute_web_bg.wasm', 'robots.txt',
             'sitemap.xml', '.nojekyll', 'ads.txt',
         })
@@ -67,6 +71,10 @@ class PrepareSiteTests(unittest.TestCase):
         self.assertFalse((output / 'ads.txt').exists())
         self.assertNotIn('google-adsense-account', (output / 'index.html').read_text())
         self.assertNotIn('adsbygoogle.js', (output / 'index.html').read_text())
+        self.assertNotIn('content="noindex', (output / 'index.html').read_text())
+        self.build(site_url='https://ficbase.github.io/transmute-web/', noindex=True)
+        for page in ('index.html', 'zh/index.html', 'gbk-to-utf8.html'):
+            self.assertIn('content="noindex, follow, max-image-preview:large"', (output / page).read_text())
 
     def test_translation_and_wasm_changes_propagate_through_module_versions(self):
         output = self.build()
@@ -95,7 +103,11 @@ class PrepareSiteTests(unittest.TestCase):
         for site_url in ('https://epubloom.com/', 'https://ficbase.github.io/transmute-web/'):
             output = self.build(site_url=site_url)
             locations = {node.text for node in ET.parse(output / 'sitemap.xml').findall('.//{*}loc')}
-            self.assertEqual(len(locations), 16)
+            self.assertEqual(len(locations), 22)
+            sitemap = ET.parse(output / 'sitemap.xml')
+            for node in sitemap.findall('.//{http://www.sitemaps.org/schemas/sitemap/0.9}url'):
+                alternates = node.findall('{http://www.w3.org/1999/xhtml}link')
+                self.assertEqual({link.attrib['hreflang'] for link in alternates}, {'en', 'zh-Hans', 'x-default'})
             titles = set()
             for language, prefix in (('en', ''), ('zh', 'zh/')):
                 for page in self.pages:
@@ -116,6 +128,17 @@ class PrepareSiteTests(unittest.TestCase):
                     webpage = next(item for item in schema['@graph'] if item['@type'] == 'WebPage')
                     self.assertEqual(webpage['url'], canonical)
                     self.assertEqual(webpage['inLanguage'], 'zh-CN' if language == 'zh' else 'en')
+                    self.assertIn(f'content="{site_url}assets/social-card.png?v=', source)
+                    if page != 'index.html':
+                        breadcrumb = next(item for item in schema['@graph'] if item['@type'] == 'BreadcrumbList')
+                        self.assertEqual(breadcrumb['itemListElement'][-1]['item'], canonical)
+                        self.assertIn('class="breadcrumbs"', source)
+                    if page in ('gbk-to-utf8.html', 'epub-cover.html', 'txt-chapters.html'):
+                        article = next(item for item in schema['@graph'] if item['@type'] == 'Article')
+                        self.assertEqual(article['mainEntityOfPage']['@id'], canonical + '#webpage')
+                        self.assertNotIn('aggregateRating', source)
+                        self.assertIn('class="article-toc"', source)
+                        self.assertIn('href="#section-1"', source)
                     self.assertIn(f'Sitemap: {site_url}sitemap.xml', (output / 'robots.txt').read_text())
             chinese = (output / 'zh/txt-to-epub.html').read_text()
             self.assertIn('如何将 TXT 转为 EPUB', chinese)
