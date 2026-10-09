@@ -484,3 +484,6 @@ document.querySelectorAll('[data-language-link]').forEach(link => link.addEventL
   event.preventDefault();
   setLanguage(link.dataset.languageLink);
 }));
+
+// Enable the switch only after its listeners and translations are ready.
+document.querySelector('#languageSelect')?.removeAttribute('disabled');

@@ -107,6 +107,8 @@ def render_page(source, page, language, messages, site_url, pages, versions):
         if node.tag == 'html':
             node.attrs.update({'lang': locale, 'data-page': page, 'data-site-base': base,
                                'data-language': language})
+        if node.attrs.get('id') == 'languageSelect':
+            node.attrs['disabled'] = None
         if node.tag == 'option' and node.attrs.get('value') in ('en', 'zh'):
             node.attrs.pop('selected', None)
             if node.attrs['value'] == language:
