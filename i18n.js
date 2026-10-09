@@ -42,8 +42,19 @@ const messages = {
     "upload.title": "Drop a TXT or EPUB file here",
     "upload.or": "or choose one from your device",
     "upload.browse": "Choose a file",
-    "cover.title": "Add a cover image",
-    "cover.hint": "Optional. Otherwise, we’ll make a simple cover.",
+    "cover.title": "Book cover",
+    "cover.hint": "Preview your cover, automatically fitted to a 2:3 book format.",
+    "cover.preview": "Cover preview",
+    "cover.choose": "Choose image",
+    "cover.change": "Change image",
+    "cover.processing": "Preparing cover…",
+    "cover.fit": "Cover image fit",
+    "cover.contain": "Keep full image",
+    "cover.crop": "Fill cover",
+    "cover.readyContain": "1200 × 1800 · Full image with a matching background",
+    "cover.readyCrop": "1200 × 1800 · Center cropped to fill",
+    "status.coverSize": "Please choose a cover image smaller than 20 MB.",
+    "status.coverInvalid": "This image could not be opened or is too large. Try a JPG, PNG or WebP under 40 megapixels.",
     "cover.badge": "Cover",
     "metadata.title": "Book details",
     "metadata.optional": "Optional",
@@ -252,8 +263,19 @@ const messages = {
     "upload.title": "把 TXT 或 EPUB 文件拖到这里",
     "upload.or": "或从你的设备中选择",
     "upload.browse": "选择文件",
-    "cover.title": "添加封面图片",
-    "cover.hint": "选填。不添加时，会自动生成简洁封面。",
+    "cover.title": "书籍封面",
+    "cover.hint": "即时预览，自动适配 2:3 竖版书籍比例。",
+    "cover.preview": "封面预览",
+    "cover.choose": "选择图片",
+    "cover.change": "更换图片",
+    "cover.processing": "正在整理封面……",
+    "cover.fit": "封面图片适配方式",
+    "cover.contain": "完整保留",
+    "cover.crop": "铺满封面",
+    "cover.readyContain": "1200 × 1800 · 保留完整画面，自动补背景",
+    "cover.readyCrop": "1200 × 1800 · 居中裁剪，铺满封面",
+    "status.coverSize": "请选择小于 20 MB 的封面图片。",
+    "status.coverInvalid": "无法读取此图片，或图片尺寸过大。请尝试不超过 4000 万像素的 JPG、PNG 或 WebP。",
     "cover.badge": "封面",
     "metadata.title": "书籍信息",
     "metadata.optional": "选填",
@@ -486,7 +508,7 @@ function renderLanguage() {
   for (const [attribute, target] of [['data-i18n', 'textContent'], ['data-i18n-html', 'innerHTML']]) {
     document.querySelectorAll(`[${attribute}]`).forEach(element => { element[target] = t(element.getAttribute(attribute)); });
   }
-  for (const [attribute, target] of [['data-i18n-placeholder', 'placeholder'], ['data-i18n-label', 'aria-label'], ['data-i18n-content', 'content']]) {
+  for (const [attribute, target] of [['data-i18n-placeholder', 'placeholder'], ['data-i18n-label', 'aria-label'], ['data-i18n-content', 'content'], ['data-i18n-alt', 'alt']]) {
     document.querySelectorAll(`[${attribute}]`).forEach(element => element.setAttribute(target, t(element.getAttribute(attribute))));
   }
   syncPageLanguage();

@@ -5,6 +5,10 @@ import init, { txt_to_epub, epub_to_txt, encode_text, init_panic_hook, set_times
 const state = {
   file: null,
   cover: null,
+  coverSource: null,
+  coverFit: 'contain',
+  coverPreviewUrl: null,
+  coverProcessing: false,
   result: null,
   resultName: null,
   mode: null,
@@ -32,9 +36,13 @@ const fileRemove = $('#fileRemove');
 const coverRow = $('#coverRow');
 const coverZone = $('#coverZone');
 const coverInput = $('#coverInput');
-const coverFileRow = $('#coverFileRow');
 const coverFileName = $('#coverFileName');
 const coverRemove = $('#coverRemove');
+const coverImage = $('#coverImage');
+const coverPlaceholder = $('#coverPlaceholder');
+const coverFit = $('#coverFit');
+const coverDimensions = $('#coverDimensions');
+let coverRequest = 0;
 const convertBtn = $('#convertBtn');
 const encodingActions = $('#encodingActions');
 const encodingBtn = $('#encodingBtn');
@@ -83,22 +91,30 @@ function updateUI() {
   dropzone.style.display = hasFile ? 'none' : 'block';
 
   const isTxt = state.mode === 'txt2epub';
-  coverRow.style.display = isTxt ? 'block' : 'none';
+  coverRow.style.display = isTxt ? 'grid' : 'none';
   metaSection.style.display = isTxt ? 'block' : 'none';
-  convertBtn.disabled = !state.file || state.busy || state.loadFailed;
+  convertBtn.disabled = !state.file || state.busy || state.coverProcessing || state.loadFailed;
   convertBtn.textContent = t(state.busy && state.operation !== 'encoding' ? 'action.converting' : isTxt
     ? 'action.epub' : state.mode === 'epub2txt' ? 'action.txt' : 'action.choose');
   encodingActions.hidden = !isTxt;
-  encodingBtn.disabled = !isTxt || state.busy || !state.sourceEncoding || state.loadFailed;
+  encodingBtn.disabled = !isTxt || state.busy || state.coverProcessing || !state.sourceEncoding || state.loadFailed;
   encodingBtn.textContent = t(state.operation === 'encoding' ? 'action.encodingConverting' : 'action.encoding');
   encodingSelect.disabled = state.busy;
   sourceEncoding.textContent = state.sourceEncoding === 'gb18030' ? t('encoding.legacy')
     : state.sourceEncoding ? encodingNames[state.sourceEncoding] : t(state.encodingInvalid ? 'encoding.unknown' : 'encoding.detecting');
   downloadBtn.textContent = t('action.download');
   fileInput.disabled = state.busy;
-  coverInput.disabled = state.busy;
+  coverInput.disabled = state.busy || state.coverProcessing;
+  coverZone.disabled = state.busy || state.coverProcessing;
+  coverRemove.disabled = state.busy || state.coverProcessing;
+  coverRow.setAttribute('aria-busy', String(state.coverProcessing));
+  $('#coverChooseLabel').textContent = t(state.coverProcessing ? 'cover.processing' : state.cover ? 'cover.change' : 'cover.choose');
+  coverFit.querySelectorAll('button').forEach(button => {
+    button.disabled = state.busy || state.coverProcessing;
+    button.setAttribute('aria-pressed', String(button.dataset.coverFit === state.coverFit));
+  });
+  coverDimensions.textContent = t(state.coverProcessing ? 'cover.processing' : state.coverFit === 'crop' ? 'cover.readyCrop' : 'cover.readyContain');
   fileRemove.disabled = state.busy;
-  coverRemove.disabled = state.busy;
   dropzone.setAttribute('aria-disabled', String(state.busy));
   coverZone.setAttribute('aria-disabled', String(state.busy));
   metaBody.querySelectorAll('input, textarea').forEach(field => { field.disabled = state.busy; });
@@ -113,17 +129,14 @@ function setFile(file) {
   state.file = file;
   state.mode = mode;
   state.result = null;
-  state.cover = null;
+  clearCover();
   state.sourceEncoding = null;
   state.encodingInvalid = false;
   closeEncodingMenu();
-  coverInput.value = '';
   downloadBtn.classList.remove('show');
   [metaTitle, metaAuthor, metaDesc, metaPublisher, metaIdentifier, metaDate, metaRights, metaSubjects].forEach(field => { field.value = ''; });
   fileName.textContent = file.name;
   fileFormat.textContent = ext.toUpperCase();
-  coverFileRow.style.display = 'none';
-  coverZone.style.display = 'block';
   updateUI();
   setStatus(state.loadFailed ? 'status.loadFailed' : '');
   // auto-fill metadata for txt files
@@ -172,6 +185,7 @@ fileRemove.addEventListener('click', () => {
   state.file = null;
   state.mode = null;
   state.result = null;
+  clearCover();
   fileInput.value = '';
   downloadBtn.classList.remove('show');
   updateUI();
@@ -181,26 +195,100 @@ fileRemove.addEventListener('click', () => {
 // ── Cover selection ────────────────────────────────────────────
 openPicker(coverZone, coverInput);
 coverInput.addEventListener('change', () => {
-  if (coverInput.files.length) {
-    if (state.busy) return;
-    if (!coverInput.files[0].type.startsWith('image/')) {
-      setStatus('status.coverType', 'error');
-      coverInput.value = '';
-      return;
-    }
-    state.cover = coverInput.files[0];
-    coverFileName.textContent = state.cover.name;
-    coverFileRow.style.display = 'flex';
-    coverZone.style.display = 'none';
-  }
+  if (coverInput.files.length && !state.busy && !state.coverProcessing) prepareCover(coverInput.files[0], state.coverFit);
+  coverInput.value = ''; // Selecting the same image again also works.
 });
 coverRemove.addEventListener('click', () => {
-  if (state.busy) return;
-  state.cover = null;
-  coverInput.value = '';
-  coverFileRow.style.display = 'none';
-  coverZone.style.display = 'block';
+  if (state.busy || state.coverProcessing) return;
+  clearCover();
+  state.result = null;
+  downloadBtn.classList.remove('show');
+  updateUI();
+  setStatus('');
 });
+coverFit.querySelectorAll('button').forEach(button => button.addEventListener('click', () => {
+  if (state.coverSource && !state.busy && !state.coverProcessing && state.coverFit !== button.dataset.coverFit) {
+    prepareCover(state.coverSource, button.dataset.coverFit);
+  }
+}));
+
+function clearCover() {
+  coverRequest++;
+  if (state.coverPreviewUrl) URL.revokeObjectURL(state.coverPreviewUrl);
+  Object.assign(state, { cover: null, coverSource: null, coverPreviewUrl: null, coverProcessing: false, coverFit: 'contain' });
+  coverInput.value = '';
+  coverImage.removeAttribute('src');
+  coverImage.hidden = true;
+  coverPlaceholder.removeAttribute('hidden');
+  coverFileName.hidden = true;
+  coverDimensions.hidden = true;
+  coverFit.hidden = true;
+  coverRemove.hidden = true;
+}
+
+async function prepareCover(file, fit) {
+  if (!file.type.startsWith('image/')) { setStatus('status.coverType', 'error'); return; }
+  if (file.size > 20 * 1024 * 1024) { setStatus('status.coverSize', 'error'); return; }
+  const request = ++coverRequest;
+  const originalUrl = URL.createObjectURL(file);
+  state.coverProcessing = true;
+  coverDimensions.hidden = false;
+  updateUI();
+  try {
+    const image = new Image();
+    await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = reject; image.src = originalUrl; });
+    if (request !== coverRequest) return;
+    if (!image.naturalWidth || !image.naturalHeight || image.naturalWidth * image.naturalHeight > 40000000) throw new Error('IMAGE_SIZE');
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200;
+    canvas.height = 1800;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('CANVAS_UNAVAILABLE');
+    ctx.fillStyle = '#f2efe7';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingQuality = 'high';
+    const fillScale = Math.max(canvas.width / image.naturalWidth, canvas.height / image.naturalHeight);
+    function draw(scale, bleed = 0) {
+      const width = image.naturalWidth * scale + bleed * 2;
+      const height = image.naturalHeight * scale + bleed * 2;
+      ctx.drawImage(image, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+    }
+    if (fit === 'contain') {
+      ctx.save();
+      ctx.filter = 'blur(32px)';
+      draw(fillScale, 80);
+      ctx.restore();
+      ctx.fillStyle = '#f2efe730';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      draw(Math.min(canvas.width / image.naturalWidth, canvas.height / image.naturalHeight));
+    } else draw(fillScale);
+    const blob = await new Promise((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error('IMAGE_EXPORT')), 'image/jpeg', .92));
+    if (request !== coverRequest) return;
+    const previewUrl = URL.createObjectURL(blob);
+    const previousUrl = state.coverPreviewUrl;
+    Object.assign(state, { cover: new File([blob], 'cover.jpg', { type: 'image/jpeg' }), coverSource: file, coverFit: fit, coverPreviewUrl: previewUrl });
+    coverImage.src = previewUrl;
+    coverImage.hidden = false;
+    coverPlaceholder.setAttribute('hidden', '');
+    coverFileName.textContent = file.name;
+    coverFileName.hidden = false;
+    coverFit.hidden = false;
+    coverRemove.hidden = false;
+    if (previousUrl) URL.revokeObjectURL(previousUrl);
+    state.result = null;
+    downloadBtn.classList.remove('show');
+    setStatus(state.loadFailed ? 'status.loadFailed' : '');
+  } catch {
+    if (request === coverRequest) setStatus('status.coverInvalid', 'error');
+  } finally {
+    URL.revokeObjectURL(originalUrl);
+    if (request === coverRequest) {
+      state.coverProcessing = false;
+      coverDimensions.hidden = !state.cover;
+      updateUI();
+    }
+  }
+}
 
 // ── Metadata editor ──────────────────────────────────────────────
 async function autoFillMeta(file) {
