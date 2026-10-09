@@ -18,16 +18,63 @@
 curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
 # 构建 WASM
-wasm-pack build --target web
+wasm-pack build --target web --locked
+
+# 生成仅包含公开页面、示例与 WASM 的发布目录
+python3 scripts/prepare-site.py
 
 # 本地预览
-python3 -m http.server -d . 8080
+python3 -m http.server -d dist 8080
 # 访问 http://localhost:8080
 ```
 
 ## 部署
 
-推送至 main 分支后 GitHub Actions 自动构建 WASM 并部署到 GitHub Pages。
+PR 会检查构建；推送至 main 分支后 GitHub Actions 自动构建 WASM，生成 `dist/` 并部署到 GitHub Pages。部署目录只包含公开页面、样式、示例、转换模块和搜索引擎文件，不发布 Rust 源码、构建缓存或项目文档。
+
+网站包含转换器、使用指南、关于、联系与反馈、隐私说明。指南中的示例文字可以用于验证章节和中文处理。联系渠道为公开的 GitHub Issues，不应在反馈中提交私人文稿。
+
+### 独立域名与 Cloudflare
+
+当前网址含 `/transmute-web/` 项目路径。用于广告运营时建议先确定独立域名，把网站部署到该域名根目录，便于管理所有权验证、`ads.txt` 和搜索收录。域名需要单独注册，不由本仓库购买。
+
+这是纯静态 WASM 网站，可使用 [Cloudflare Workers Static Assets](https://developers.cloudflare.com/workers/static-assets/) 托管。仓库提供 `wrangler.jsonc`，只发布 `dist/`，不需要后端 Worker 脚本。部署流程：
+
+1. 在 Cloudflare 账号中准备域名及 DNS；没有域名时可先验证平台预览网址。
+2. 先构建 WASM，再用实际网站地址生成发布目录：
+
+   ```bash
+   wasm-pack build --target web --locked
+   SITE_URL=https://your-domain.example/ python3 scripts/prepare-site.py
+   ```
+
+   示例地址必须替换为实际域名。`SITE_URL` 决定 canonical、sitemap 和 robots 中的地址，不会自动绑定域名。
+
+3. 按 [Cloudflare 部署说明](https://developers.cloudflare.com/workers/static-assets/get-started/) 安装 Wrangler 并登录自己的账号，运行 `npx wrangler deploy` 上传静态产物。首次生成目录时，应使用平台实际分配的网址；得到正式域名后重新生成并部署。
+4. 在 Workers 设置里添加自己的 Custom Domain，检查 HTTPS、转换模块和页面可访问。只有实际部署到 Cloudflare 的版本才使用 Cloudflare 托管。
+5. 在 Google Search Console 验证域名并提交 `/sitemap.xml`，检查收录和用户实际使用情况。
+
+继续使用 GitHub Pages 也可以绑定自己的域名：先在仓库 Pages 设置中配置 Custom domain 与 DNS，再把仓库变量 `SITE_URL` 设置为正式 HTTPS 根地址。修改变量后重新运行部署工作流。GitHub Pages 用途受 [GitHub 服务条款](https://docs.github.com/en/site-policy/github-terms/github-terms-for-additional-products-and-features#pages) 约束；用于广告运营前应确认用途符合平台要求。
+
+### Google AdSense 申请与接入
+
+当前没有启用广告。补充说明页面不保证通过审核；Google 评估原创内容、使用体验及政策符合情况，见 [AdSense 资格要求](https://support.google.com/adsense/answer/9724) 和 [网站准备要求](https://support.google.com/adsense/answer/7299563)。应先确认真实文件转换可用、指南准确、正式域名和公开联系渠道正常。
+
+1. 通过 [AdSense 官网](https://adsense.google.com/start/) 注册自己的账号，按真实身份、国家或地区与收款资料填写；在 Sites 中添加正式网站。
+2. 获取账号的发布商 ID（`ca-pub-` 加 16 位数字）。这个 ID 是公开配置，不是密码。
+3. 用真实根域名和真实 ID 重新打包：
+
+   ```bash
+   SITE_URL=https://your-domain.example/ ADSENSE_PUBLISHER_ID=ca-pub-1234567890123456 python3 scripts/prepare-site.py
+   ```
+
+   上面的域名和 ID 仅为格式示例，必须替换。脚本在页面加入 `google-adsense-account` 所有权验证元标签，并生成 `dist/ads.txt`，不会加载广告脚本。若使用 GitHub Pages，可设置同名仓库变量后重新部署。仅放在 `/transmute-web/ads.txt` 的文件不满足根目录要求，因此带路径的 `SITE_URL` 配合发布商 ID 会被拒绝。
+
+4. 部署后检查 `https://正式域名/ads.txt` 以及页面源码里的发布商 ID，在 AdSense 后台验证并提交审核。参考 [连接网站说明](https://support.google.com/adsense/answer/7584263)；网站状态为 Ready 后才能展示广告。
+5. 展示广告前，更新隐私说明，披露实际使用的广告服务、Cookie、退出方式与同意管理入口。参考 [Google 隐私披露要求](https://support.google.com/adsense/answer/1348695)。面向 EEA、英国和瑞士用户投放个性化广告，需要 [Google 认证的 CMP](https://support.google.com/adsense/answer/13554116)，可在 AdSense 的 Privacy & messaging 中配置。
+6. 完成实际账号和同意管理配置后，再添加 AdSense 提供的广告脚本及广告位。首次可在指南正文后设置一个清晰标明「广告」的独立区域；转换、文件选择、下载按钮附近应留足距离。不要用广告模拟下载按钮或引导用户点击广告，见 [AdSense 政策](https://support.google.com/adsense/answer/48182)。
+
+本仓库尚未接入广告脚本，也未代替用户提交 AdSense 申请或填写付款资料。收入取决于真实流量、访客地区、广告需求等因素；接入代码和审核通过均不保证收入。
 
 ## 许可
 
