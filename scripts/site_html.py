@@ -197,6 +197,8 @@ def render_page(source, page, language, messages, site_url, pages, versions, noi
         graph.append({'@type': 'WebApplication', 'name': 'EpuBloom', 'url': canonical,
                       'applicationCategory': 'UtilitiesApplication', 'operatingSystem': 'Any',
                       'browserRequirements': 'Requires JavaScript and WebAssembly',
+                      'inLanguage': locale, 'featureList': strings['app.features'].split('|'),
+                      'softwareHelp': site_url + page_path('online-reader.html', language),
                       'description': description, 'offers': {'@type': 'Offer', 'price': '0', 'priceCurrency': 'USD'}})
     data = json.dumps({'@context': 'https://schema.org', '@graph': graph}, ensure_ascii=False).replace('<', '\\u003c')
     head.children.extend(Document(meta).root.children)
