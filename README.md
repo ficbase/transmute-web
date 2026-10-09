@@ -1,8 +1,8 @@
-# transmute-web · txt ↔ epub 在线转换器
+# EpuBloom · TXT ↔ EPUB converter
 
 基于 [transmute](https://github.com/ficbase/transmute) 的纯浏览器端 txt↔epub 转换网站，通过 WebAssembly 运行，文件不会上传到服务器。
 
-**网址**: https://ficbase.github.io/transmute-web/
+**正式网站**: https://epubloom.com/
 
 ## 功能
 
@@ -10,6 +10,14 @@
 - **epub → txt**: 还原纯文本，保留段落分行和全角空格缩进
 - **自动编码检测**: BOM → UTF-8 验证 → GBK 回退，兼容旧版中文 txt
 - **纯本地处理**: WASM 在浏览器内运行，文件不上传
+
+## 界面与语言
+
+首次访问默认英语，支持英语和简体中文切换。语言偏好保存在当前浏览器的 localStorage；存储被禁用时仍可在当前页面切换。切换语言不会清除所选文件、封面、转换结果或已编辑的书籍信息。书籍语言与界面语言独立设置。
+
+页面文案、标题、描述、按钮和状态提示统一维护在 `i18n.js`。HTML 保留默认英文正文，让说明页面在 JavaScript 不可用时也能阅读。`converter.js` 管理转换交互，`site.css` 提供所有页面的响应式样式。英文示例位于 `examples/sample-en.txt`，中文示例位于 `examples/sample.txt`。
+
+TXT 支持识别前 20 行中的 `Title:` / `Author:` 和中文《书名》/作者标记。EPUB 转 TXT 时，书名、作者前缀和默认章节名按书籍语言确定，界面切换不会翻译正文。
 
 ## 本地开发
 
@@ -30,13 +38,17 @@ python3 -m http.server -d dist 8080
 
 ## 部署
 
+正式网站运行在独立服务器上。现有 GitHub Actions 会检查构建和中英文转换测试，并继续发布 GitHub Pages 预览；它不会自动更新独立服务器。服务器发布时，用 `SITE_URL=https://epubloom.com/` 生成 `dist/`，把完整目录放入新的发布目录，再切换网站目录。Nginx 与证书配置保留在服务器上。不要发布项目根目录或 `.key` 等连接信息。
+
+发布脚本为样式、脚本、图标和 WASM 依赖生成内容版本号，避免浏览器把新页面与旧资源混用。更改页面或翻译后，也需要重新生成 `dist/`。
+
 PR 会检查构建；推送至 main 分支后 GitHub Actions 自动构建 WASM，生成 `dist/` 并部署到 GitHub Pages。部署目录只包含公开页面、样式、示例、转换模块和搜索引擎文件，不发布 Rust 源码、构建缓存或项目文档。
 
 网站包含转换器、使用指南、关于、联系与反馈、隐私说明。指南中的示例文字可以用于验证章节和中文处理。联系渠道为公开的 GitHub Issues，不应在反馈中提交私人文稿。
 
 ### 独立域名与 Cloudflare
 
-当前网址含 `/transmute-web/` 项目路径。用于广告运营时建议先确定独立域名，把网站部署到该域名根目录，便于管理所有权验证、`ads.txt` 和搜索收录。域名需要单独注册，不由本仓库购买。
+默认 GitHub Pages 预览网址含 `/transmute-web/` 项目路径。用于广告运营时建议先确定独立域名，把网站部署到该域名根目录，便于管理所有权验证、`ads.txt` 和搜索收录。域名需要单独注册，不由本仓库购买。
 
 这是纯静态 WASM 网站，可使用 [Cloudflare Workers Static Assets](https://developers.cloudflare.com/workers/static-assets/) 托管。仓库提供 `wrangler.jsonc`，只发布 `dist/`，不需要后端 Worker 脚本。部署流程：
 

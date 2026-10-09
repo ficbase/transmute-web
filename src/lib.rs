@@ -148,7 +148,6 @@ pub fn txt_to_epub(
     // auto-detect from text
     let detected_author = extract_author(txt);
     let detected_title = extract_title(txt);
-    let chapters = split_into_chapters(txt);
 
     // parse user metadata JSON, fall back to auto-detected
     let meta: EpubMetaInput = metadata_json
@@ -160,7 +159,8 @@ pub fn txt_to_epub(
         .or(detected_title)
         .unwrap_or_else(|| "untitled".into());
     let author = meta.author.unwrap_or(detected_author);
-    let language = meta.language.unwrap_or_else(|| "zh".into());
+    let language = meta.language.unwrap_or_else(|| "en".into());
+    let chapters = split_into_chapters(txt, &language);
 
     let mut extra = HashMap::new();
     if let Some(d) = meta.description { extra.insert("dcterms:description".into(), d); }
@@ -211,11 +211,21 @@ pub fn epub_to_txt(epub_data: &[u8]) -> String {
     match parse_epub(cursor) {
         Ok(book) => {
             let mut txt = String::new();
+            let chinese = book.metadata.language.to_ascii_lowercase().starts_with("zh");
             if !book.metadata.title.is_empty() {
-                txt.push_str(&format!("《{}》\n", book.metadata.title));
+                if chinese {
+                    txt.push_str(&format!("《{}》\n", book.metadata.title));
+                } else {
+                    txt.push_str(&format!("Title: {}\n", book.metadata.title));
+                }
             }
             if !book.metadata.author.is_empty() {
-                txt.push_str(&format!("作者：{}\n", book.metadata.author));
+                let label = if chinese {
+                    "作者："
+                } else {
+                    "Author: "
+                };
+                txt.push_str(&format!("{}{}\n", label, book.metadata.author));
             }
             txt.push('\n');
 
@@ -226,7 +236,7 @@ pub fn epub_to_txt(epub_data: &[u8]) -> String {
             }
             txt
         }
-        Err(_) => String::from("[Error: 无法解析 EPUB 文件]"),
+        Err(_) => String::from("[Error: Unable to parse EPUB file]"),
     }
 }
 
@@ -805,9 +815,10 @@ impl std::error::Error for Error {}
 
 // ── Chapter detection (from transmute CLI) ───────────────────────────
 
-fn split_into_chapters(text: &str) -> Vec<Chapter> {
+fn split_into_chapters(text: &str, language: &str) -> Vec<Chapter> {
     let mut chapters: Vec<Chapter> = Vec::new();
-    let mut current_title = String::from("第1章");
+    let default_title = if language.to_ascii_lowercase().starts_with("zh") { "第1章" } else { "Chapter 1" };
+    let mut current_title = String::from(default_title);
     let mut current_body = String::new();
     let mut first = true;
 
@@ -829,7 +840,7 @@ fn split_into_chapters(text: &str) -> Vec<Chapter> {
     }
 
     if !first || !current_body.is_empty() {
-        if current_title.is_empty() { current_title = "第1章".into(); }
+        if current_title.is_empty() { current_title = default_title.into(); }
         chapters.push(Chapter { title: current_title, body: current_body });
     }
     chapters
@@ -864,6 +875,11 @@ fn is_cn_digit(c: char) -> bool {
 
 fn extract_author(text: &str) -> String {
     for line in text.lines().take(20) {
+        if let Some((label, value)) = line.trim().split_once(':') {
+            if label.trim().eq_ignore_ascii_case("author") && !value.trim().is_empty() {
+                return value.trim().to_string();
+            }
+        }
         for sep in ["作者：", "作者:"] {
             if let Some(pos) = line.find(sep) {
                 let author = line[pos + sep.len()..].trim();
@@ -877,6 +893,11 @@ fn extract_author(text: &str) -> String {
 fn extract_title(text: &str) -> Option<String> {
     for line in text.lines().take(20) {
         let trimmed = line.trim();
+        if let Some((label, value)) = trimmed.split_once(':') {
+            if label.trim().eq_ignore_ascii_case("title") && !value.trim().is_empty() {
+                return Some(value.trim().to_string());
+            }
+        }
         if let Some(rest) = trimmed.strip_prefix('《') {
             if let Some(title) = rest.split('》').next() {
                 if !title.is_empty() { return Some(title.to_string()); }
@@ -902,4 +923,38 @@ fn strip_html(html: &str) -> String {
         prev = c;
     }
     result.trim().to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn english_book_round_trip_uses_english_headers_and_default_chapter() {
+        let input = "Title: A Quiet Morning\nAuthor: EpuBloom\n\nA walk beside the river.";
+        let epub = txt_to_epub(input, None, None, None, None);
+        let book = parse_epub(io::Cursor::new(epub.clone())).unwrap();
+        assert_eq!(book.metadata.title, "A Quiet Morning");
+        assert_eq!(book.metadata.author, "EpuBloom");
+        assert_eq!(book.metadata.language, "en");
+        assert_eq!(book.chapters[0].title, "Chapter 1");
+        let text = epub_to_txt(&epub);
+        assert!(text.contains("Title: A Quiet Morning"));
+        assert!(text.contains("Author: EpuBloom"));
+        assert!(text.contains("A walk beside the river."));
+    }
+
+    #[test]
+    fn chinese_book_keeps_chinese_headers_and_paragraphs() {
+        let input = "《河岸》\n作者：小林\n\n　　沿着河岸走一段路。";
+        let epub = txt_to_epub(input, None, None, None, Some(r#"{"language":"zh-CN"}"#.into()));
+        let book = parse_epub(io::Cursor::new(epub.clone())).unwrap();
+        assert_eq!(book.metadata.title, "河岸");
+        assert_eq!(book.metadata.author, "小林");
+        assert_eq!(book.chapters[0].title, "第1章");
+        let text = epub_to_txt(&epub);
+        assert!(text.contains("《河岸》"));
+        assert!(text.contains("作者：小林"));
+        assert!(text.contains("　　沿着河岸走一段路。"));
+    }
 }

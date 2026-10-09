@@ -33,6 +33,12 @@ jobs:
       - name: Build WASM
         run: wasm-pack build --target web --locked
 
+      - name: Test converter locales
+        run: cargo test --locked
+
+      - name: Test public site packaging
+        run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests
+
       - name: Prepare public site
         run: python3 scripts/prepare-site.py
         env:
