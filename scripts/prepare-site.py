@@ -64,8 +64,12 @@ def main():
     editor = (ROOT / "cover-editor.js").read_text(encoding="utf-8").replace(
         "'./i18n.js'", f"'./i18n.js?v={versions['i18n.js']}'")
     write_asset("cover-editor.js", editor.encode("utf-8"))
+    reader = (ROOT / "reader.js").read_text(encoding="utf-8")
+    for name in ("i18n.js", "pkg/transmute_web.js"):
+        reader = reader.replace(f"'./{name}'", f"'./{name}?v={versions[name]}'")
+    write_asset("reader.js", reader.encode("utf-8"))
     converter = (ROOT / "converter.js").read_text(encoding="utf-8")
-    for name in ("i18n.js", "cover-editor.js", "pkg/transmute_web.js"):
+    for name in ("i18n.js", "cover-editor.js", "reader.js", "pkg/transmute_web.js"):
         converter = converter.replace(f"'./{name}'", f"'./{name}?v={versions[name]}'")
     write_asset("converter.js", converter.encode("utf-8"))
     messages = translations((ROOT / "i18n.js").read_text(encoding="utf-8"))

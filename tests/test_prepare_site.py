@@ -29,7 +29,8 @@ class PrepareSiteTests(unittest.TestCase):
         shutil.copy2(repo / 'i18n.js', self.root / 'i18n.js')
         for name, text in {'site.css': 'body { color: green; }', 'favicon.svg': '<svg/>',
                            'cover-editor.js': "import './i18n.js';",
-                           'converter.js': "import './i18n.js'; import './cover-editor.js'; import './pkg/transmute_web.js';"}.items():
+                           'reader.js': "import './i18n.js'; import './pkg/transmute_web.js';",
+                           'converter.js': "import './i18n.js'; import './cover-editor.js'; import './reader.js'; import './pkg/transmute_web.js';"}.items():
             (self.root / name).write_text(text)
         (self.root / 'pkg').mkdir()
         (self.root / 'pkg/transmute_web.js').write_text("new URL('transmute_web_bg.wasm', import.meta.url)")
@@ -58,7 +59,7 @@ class PrepareSiteTests(unittest.TestCase):
         public = {str(path.relative_to(output)) for path in output.rglob('*') if path.is_file()}
         self.assertEqual(public, {
             *self.pages, *('zh/' + page for page in self.pages),
-            'site.css', 'favicon.svg', 'converter.js', 'cover-editor.js', 'i18n.js', 'examples/sample.txt', 'examples/sample-en.txt',
+            'site.css', 'favicon.svg', 'converter.js', 'cover-editor.js', 'reader.js', 'i18n.js', 'examples/sample.txt', 'examples/sample-en.txt',
             'assets/social-card.png',
             'pkg/transmute_web.js', 'pkg/transmute_web_bg.wasm', 'robots.txt',
             'sitemap.xml', 'sitemap-zh.xml', 'baidu-urls.txt', '.nojekyll', 'ads.txt',
@@ -134,6 +135,15 @@ class PrepareSiteTests(unittest.TestCase):
         self.assertEqual(first_css, self.version(output / 'site.css'))
         self.assertIn(f'converter.js?v={self.version(output / "converter.js")}', (output / 'index.html').read_text())
         self.assertIn(f'./pkg/transmute_web.js?v={self.version(output / "pkg/transmute_web.js")}', (output / 'converter.js').read_text())
+        self.assertIn(f"./reader.js?v={self.version(output / 'reader.js')}", (output / 'converter.js').read_text())
+        self.assertIn(f"./pkg/transmute_web.js?v={self.version(output / 'pkg/transmute_web.js')}", (output / 'reader.js').read_text())
+        previous_reader = self.version(output / 'reader.js')
+        previous_converter = self.version(output / 'converter.js')
+        (self.root / 'reader.js').write_text("import './i18n.js'; import './pkg/transmute_web.js'; // updated reader")
+        self.build()
+        self.assertNotEqual(previous_reader, self.version(output / 'reader.js'))
+        self.assertNotEqual(previous_converter, self.version(output / 'converter.js'))
+
         previous_converter = self.version(output / 'converter.js')
         (self.root / 'cover-editor.js').write_text("import './i18n.js'; // updated editor")
         self.build()
