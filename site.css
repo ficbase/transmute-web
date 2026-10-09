@@ -802,6 +802,125 @@ svg {
   color:var(--green);
 }
 
+.cover-text-options {
+  margin-top:12px;
+}
+
+.cover-text-options[hidden],.export-name[hidden] {
+  display:none;
+}
+
+.cover-text-toggle {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  width:fit-content;
+  color:var(--ink);
+  font-size:11px;
+  line-height:1.6;
+  cursor:pointer;
+}
+
+.cover-text-toggle input {
+  appearance:none;
+  position:relative;
+  flex-shrink:0;
+  width:30px;
+  height:18px;
+  margin:0;
+  border:1px solid #cbd7c1;
+  border-radius:12px;
+  background:#e5eadf;
+  transition:background .2s,border-color .2s;
+  cursor:inherit;
+}
+
+.cover-text-toggle input::before {
+  content:"";
+  position:absolute;
+  top:2px;
+  left:2px;
+  width:12px;
+  height:12px;
+  border-radius:50%;
+  background:white;
+  box-shadow:0 1px 3px #253c3026;
+  transition:transform .2s;
+}
+
+.cover-text-toggle input:checked {
+  background:var(--green);
+  border-color:var(--green);
+}
+
+.cover-text-toggle input:checked::before {
+  transform:translateX(12px);
+}
+
+.cover-text-toggle input:disabled {
+  opacity:.55;
+  cursor:wait;
+}
+
+.cover-text-hint {
+  margin:5px 0 0;
+  color:var(--muted);
+  font-size:10px;
+  line-height:1.6;
+}
+
+.export-name {
+  margin-top:18px;
+}
+
+.export-name > label {
+  display:block;
+  margin-bottom:7px;
+  color:#5d6d56;
+  font-size:11px;
+}
+
+.export-name-field {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding-right:11px;
+  border:1px solid #dfe5d8;
+  border-radius:7px;
+  background:white;
+}
+
+.export-name-field:focus-within {
+  outline:2px solid var(--green);
+  outline-offset:2px;
+}
+
+.export-name-field input {
+  width:100%;
+  min-width:0;
+  padding:11px;
+  border:0;
+  border-radius:7px;
+  background:transparent;
+  color:var(--ink);
+  font-size:12px;
+  outline:none;
+}
+
+.export-name-field span {
+  flex-shrink:0;
+  color:var(--muted);
+  font-size:11px;
+}
+
+.export-name > p {
+  margin:6px 0 0;
+  color:var(--muted);
+  font-size:10px;
+  line-height:1.6;
+  overflow-wrap:anywhere;
+}
+
 @media(max-width:380px) {
   .cover-row { grid-template-columns:68px minmax(0,1fr); gap:12px; padding:14px; }
 }
@@ -1814,7 +1933,7 @@ html[lang=zh-CN] .steps-card h2 {
   .hero {
     padding-bottom:30px;
   }
-  .meta-row input,.meta-row textarea {
+  .meta-row input,.meta-row textarea,.export-name-field input {
     font-size:16px;
   }
   .steps-card li p {
