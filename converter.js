@@ -1,4 +1,4 @@
-import { t, getLanguage } from './i18n.js';
+import { t, getLanguage, createDisclosure } from './i18n.js';
 import init, { txt_to_epub, epub_to_txt, encode_text, init_panic_hook, set_timestamp, detect_title, detect_author } from './pkg/transmute_web.js';
 
 // ── State ──────────────────────────────────────────────────────
@@ -309,11 +309,7 @@ async function autoFillMeta(file) {
   } catch (_) { /* ignore read errors */ }
 }
 
-metaToggle.addEventListener('click', () => {
-  const open = metaBody.classList.toggle('show');
-  metaToggle.classList.toggle('open', open);
-  metaToggle.setAttribute('aria-expanded', String(open));
-});
+createDisclosure(metaToggle, metaBody);
 
 function val(id) { const v = id.value.trim(); return v || null; }
 
