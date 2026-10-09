@@ -89,6 +89,8 @@ PR 会检查构建；推送至 main 分支后 GitHub Actions 自动构建 WASM�
 - 在 Google Search Console 验证 `epubloom.com` 网域资源后，提交 `https://epubloom.com/sitemap.xml`。保留验证用 DNS TXT 记录。站点地图和提交收录请求均不保证索引或排名。
 - 后续根据 Search Console 的真实展示、点击与搜索词完善内容；更改内容后重新打包并部署，避免只改浏览器文案而未更新静态页面。
 
+本次发布及 Search Console 的实际检查结果见 [2026-10-09 SEO 发布记录](docs/seo-audit-2026-10-09.md)。
+
 ### Google AdSense 申请与接入
 
 正式网站已配置 AdSense 连接代码，实际展示需等待网站审核通过及账号配置完成。补充说明页面不保证通过审核；Google 评估原创内容、使用体验及政策符合情况，见 [AdSense 资格要求](https://support.google.com/adsense/answer/9724) 和 [网站准备要求](https://support.google.com/adsense/answer/7299563)。应先确认真实文件转换可用、指南准确、正式域名和公开联系渠道正常。
