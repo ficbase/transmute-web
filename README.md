@@ -101,7 +101,7 @@ GitHub Pages 也可绑定独立域名；本仓库当前仅把它用于预览。�
 - `baidu-urls.txt`：同一批中文网址，每行一条，供百度平台手动提交时复制。
 - `robots.txt`：允许抓取并声明完整站点地图及中文站点地图。
 
-在 [百度搜索资源平台](https://ziyuan.baidu.com/site/index) 添加 `https://epubloom.com/`，按实际功能选择网站类型，使用“HTML 标签验证”。取得标签的 `content` 值后，以 `BAIDU_SITE_VERIFICATION` 构建变量传入，脚本会在正式页面 head 中注入验证标签。变量仅接收验证码，不接收整段 HTML；未提供时不添加虚假标签，noindex 预览不会注入验证信息。验证成功后需要持续保留该配置，每次正式发布都应提供它。
+在 [百度搜索资源平台](https://ziyuan.baidu.com/site/index) 添加 `https://epubloom.com/`，按实际功能选择网站类型，使用“HTML 标签验证”。公开的 HTML 验证码保存在 `baidu-site-verification.txt`，正式构建自动读取并在页面 head 中注入验证标签；noindex 预览不会注入。更换账号时，可更新该文件，也可用 `BAIDU_SITE_VERIFICATION` 构建变量覆盖。变量仅接收标签的 content 值，不接收整段 HTML；显式设置为空可停用验证标签。验证成功后需持续保留实际验证码。该文件不单独发布，后台 API token 不可放入此文件。
 
 ```bash
 SITE_URL=https://epubloom.com/ SITE_NOINDEX=0 \
