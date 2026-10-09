@@ -42,8 +42,7 @@ jobs:
       - name: Prepare public site
         run: python3 scripts/prepare-site.py
         env:
-          SITE_URL: ${{ vars.SITE_URL || 'https://ficbase.github.io/transmute-web/' }}
-          ADSENSE_PUBLISHER_ID: ${{ vars.ADSENSE_PUBLISHER_ID }}
+          SITE_URL: ${{ vars.PREVIEW_SITE_URL || 'https://ficbase.github.io/transmute-web/' }}
           SITE_NOINDEX: '1'
 
       - name: Setup Pages
