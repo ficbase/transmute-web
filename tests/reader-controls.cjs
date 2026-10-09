@@ -30,6 +30,24 @@ const text = ['Title: Reading controls', 'Author: EpuBloom', '', ...[1, 2, 3].fl
       const bounds = await page.locator('#readerViewport').boundingBox();
       await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
     }
+    async function top() {
+      const bounds = await page.locator('#readerShell').boundingBox();
+      await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + 1);
+      await page.waitForFunction(() => !document.querySelector('#readerToolbar').inert);
+      await page.waitForTimeout(260);
+    }
+    async function away() {
+      const bounds = await page.locator('#readerViewport').boundingBox();
+      await page.mouse.move(bounds.x + bounds.width / 2 + 12, bounds.y + bounds.height / 2);
+      await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+      await page.waitForTimeout(480);
+    }
+    async function contents() {
+      const bounds = await page.locator('#readerShell').boundingBox();
+      await page.mouse.move(bounds.x + bounds.width - 1, bounds.y + bounds.height / 2);
+      await page.waitForFunction(() => !document.querySelector('#readerToc').inert);
+      await page.waitForTimeout(260);
+    }
     async function wheel(delta) { await page.mouse.wheel(0, delta); }
     async function touchGesture(startY, endY, finish = true) {
       await page.locator('#readerViewport').evaluate((element, { startY, endY, finish }) => {
@@ -46,23 +64,47 @@ const text = ['Title: Reading controls', 'Author: EpuBloom', '', ...[1, 2, 3].fl
     assert.equal(await page.locator('#readerFullscreen').getAttribute('aria-pressed'), 'true');
     assert.equal(await page.locator('#onlineReader').evaluate(element => element.open), true);
     await page.locator('#readerToolbarToggle').click(); await page.waitForTimeout(300);
-    assert.equal(await page.locator('#readerToolbarPanel').evaluate(element => element.inert), true);
+    assert.equal(await page.locator('#readerToolbar').evaluate(element => element.inert), true);
+    assert.equal(await page.locator('#readerClose').isVisible(), false);
     assert.equal(await page.evaluate(() => document.fullscreenElement.id), 'readerShell');
+    await top();
     await page.locator('#readerToolbarToggle').click(); await page.waitForTimeout(300);
     await page.locator('#readerFullscreen').click();
     await page.waitForFunction(() => !document.fullscreenElement);
     assert.equal(await page.locator('#readerFullscreen').getAttribute('aria-pressed'), 'false');
     console.log('Native fullscreen passed');
-    // Collapsing controls makes room for text, retains position, and leaves exit usable.
+    // Auto-hide removes the entire toolbar; edge reveals are overlays and preserve the text geometry.
     await page.locator('#readerViewport').evaluate(element => { element.scrollTop = (element.scrollHeight - element.clientHeight) * .4; });
     await page.waitForTimeout(100);
     const height = await page.locator('#readerViewport').evaluate(element => element.clientHeight);
     await page.locator('#readerToolbarToggle').click(); await page.waitForTimeout(300);
     assert.equal(await page.locator('#readerToolbarToggle').getAttribute('aria-expanded'), 'false');
-    assert.equal(await page.locator('#readerToolbarPanel').evaluate(element => element.inert), true);
+    assert.equal(await page.locator('#readerToolbar').evaluate(element => element.inert), true);
+    assert.equal(await page.locator('#readerClose').isVisible(), false);
     assert.ok(await page.locator('#readerViewport').evaluate(element => element.clientHeight) > height);
     assert.ok(Math.abs(await page.locator('#readerViewport').evaluate(element => element.scrollTop / (element.scrollHeight - element.clientHeight)) - .4) < .02);
-    assert.equal(await page.locator('#readerClose').isVisible(), true);
+    assert.equal(await page.locator('#readerToolbar').isVisible(), false);
+    const readingBounds = await page.locator('#readerViewport').boundingBox();
+    await page.screenshot({ path: '/tmp/reader-edge-hidden-desktop.png' });
+    await top(); assert.equal(await page.locator('#readerClose').isVisible(), true);
+    assert.deepEqual(await page.locator('#readerViewport').boundingBox(), readingBounds);
+    await away(); assert.equal(await page.locator('#readerToolbar').isVisible(), false);
+    assert.equal(await page.locator('#readerToc').isVisible(), false);
+    await contents(); assert.equal(await page.locator('#readerToc').isVisible(), true);
+    await page.screenshot({ path: '/tmp/reader-edge-contents-desktop.png' });
+    assert.deepEqual(await page.locator('#readerViewport').boundingBox(), readingBounds);
+    await page.locator('#readerSearch').fill('Chapter 2');
+    assert.equal(await page.locator('.reader-toc-item').count(), 1);
+    await page.locator('#readerSearch').fill('');
+    await away(); assert.equal(await page.locator('#readerToc').isVisible(), false);
+    await page.locator('#readerToolbarReveal').focus();
+    await page.waitForFunction(() => document.activeElement?.id === 'readerTocToggle');
+    await page.waitForTimeout(250); assert.equal(await page.locator('#readerToolbar').isVisible(), true);
+    await away(); assert.equal(await page.locator('#readerToolbar').isVisible(), false);
+    await page.locator('#readerTocReveal').focus();
+    await page.waitForFunction(() => document.activeElement?.id === 'readerSearch');
+    await away(); assert.equal(await page.locator('#readerToc').isVisible(), false);
+    await top();
     await page.locator('#readerToolbarToggle').click(); await page.waitForTimeout(300);
     console.log('Toolbar passed');
     // At an interior position the wheel scrolls normally, never changes chapters.
@@ -103,13 +145,14 @@ const text = ['Title: Reading controls', 'Author: EpuBloom', '', ...[1, 2, 3].fl
       await page.locator('#readerClose').click(); await page.goto(base + locale);
       await page.setViewportSize({ width, height: 700 }); await page.evaluate(() => localStorage.removeItem('epubloom.reader.positions')); await open();
       for (const collapsed of [false, true]) {
-        if (collapsed) { await page.locator('#readerToolbarToggle').click(); await page.waitForTimeout(300); }
+        if (collapsed) { await page.locator('#readerToolbarToggle').click(); await away(); assert.equal(await page.locator('#readerToolbar').isVisible(), false); await top(); }
         assert.equal(await page.locator('#readerShell').evaluate(element => element.scrollWidth <= element.clientWidth), true);
         for (const selector of ['#readerClose', '#readerToolbarToggle', '#readerNext']) {
           const bounds = await page.locator(selector).boundingBox();
           assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= width && bounds.y + bounds.height <= 700, selector + ' fits ' + width);
         }
       }
+      await away(); await top(); await page.locator('#readerToolbarToggle').click(); await away();
       if (width === 390) await page.screenshot({ path: '/tmp/reader-controls-' + (locale ? 'zh' : 'en') + '.png' });
     }
     assert.deepEqual(errors, []);
@@ -123,6 +166,27 @@ const text = ['Title: Reading controls', 'Author: EpuBloom', '', ...[1, 2, 3].fl
     await denied.locator('#readBtn').click(); await denied.waitForFunction(() => document.querySelector('#readerArticle').childElementCount);
     await denied.locator('#readerFullscreen').click(); assert.equal(await denied.locator('#readerNotice').isVisible(), true);
     assert.match(await denied.locator('#readerArticle').innerText(), /Chapter 1/);
-    console.log('PASS: native fullscreen enter/exit/close, denial feedback, animated toolbar and position preservation, wheel/touch chapter boundaries, momentum guard, first/last chapters, horizontal/zoom exclusion, bilingual mobile layouts.');
+    // Actual touchscreen taps can reveal both invisible edge controls and dismiss on the text.
+    const mobile = await browser.newPage({ viewport: { width: 390, height: 700 }, hasTouch: true, isMobile: true });
+    mobile.setDefaultTimeout(10000);
+    await mobile.route('https://pagead2.googlesyndication.com/**', route => route.abort());
+    await mobile.goto(base + 'zh/');
+    await mobile.locator('#fileInput').setInputFiles({ name: 'touch.txt', mimeType: 'text/plain', buffer: Buffer.from(text) });
+    await mobile.locator('#readBtn').tap(); await mobile.waitForFunction(() => document.querySelector('#readerArticle').childElementCount);
+    await mobile.locator('#readerToolbarToggle').tap(); await mobile.waitForTimeout(300);
+    assert.equal(await mobile.locator('#readerToolbar').isVisible(), false);
+    await mobile.touchscreen.tap(150, 3); await mobile.waitForTimeout(300);
+    assert.equal(await mobile.locator('#readerToolbar').isVisible(), true);
+    await mobile.touchscreen.tap(150, 300); await mobile.waitForTimeout(300);
+    assert.equal(await mobile.locator('#readerToolbar').isVisible(), false);
+    await mobile.touchscreen.tap(388, 300); await mobile.waitForTimeout(300);
+    assert.equal(await mobile.locator('#readerToc').isVisible(), true);
+    await mobile.locator('.reader-toc-item').last().tap();
+    await mobile.waitForTimeout(300); assert.equal(await mobile.locator('#readerToc').isVisible(), false);
+    await mobile.touchscreen.tap(388, 300); await mobile.waitForTimeout(300);
+    await mobile.touchscreen.tap(20, 300); await mobile.waitForTimeout(300);
+    assert.equal(await mobile.locator('#readerToc').isVisible(), false);
+    await mobile.screenshot({ path: '/tmp/reader-edge-hidden-mobile.png' });
+    console.log('PASS: native fullscreen, fully hidden toolbar, top/right mouse reveal and leave, unchanged reading geometry, keyboard and real touch edge controls, wheel/touch cross-chapter navigation, bilingual layouts.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

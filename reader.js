@@ -80,6 +80,9 @@ export function createReader({ getSource }) {
   const dialog = document.querySelector('#onlineReader');
   const find = selector => dialog.querySelector(selector);
   const shell = find('#readerShell');
+  const toolbar = find('#readerToolbar');
+  const topEdge = find('#readerToolbarReveal');
+  const rightEdge = find('#readerTocReveal');
   const viewport = find('#readerViewport');
   const article = find('#readerArticle');
   const message = find('#readerMessage');
@@ -93,6 +96,8 @@ export function createReader({ getSource }) {
   let generation = 0, rendering = false, saveTimer;
   let wheelTime = 0, wheelDirection = 0, wheelDistance = 0, wheelNeedsPause = false;
   let boundaryCooldown = 0, touch = null, noticeTimer;
+  let keyboardNavigation = false;
+  const hideTimers = { toolbar: null, toc: null };
   let assetUrls = [];
   const saved = safeRead('epubloom.reader.preferences') || {};
   const preferences = { font: clamp(saved.font || 20, 14, 32), theme: ['paper','light','dark'].includes(saved.theme) ? saved.theme : 'paper' };
@@ -108,9 +113,34 @@ export function createReader({ getSource }) {
     safeWrite('epubloom.reader.preferences', preferences);
   }
   function setToc(open) {
-    toc.hidden = !open;
+    clearTimeout(hideTimers.toc); hideTimers.toc = null;
+    if (!open && toc.contains(document.activeElement)) viewport.focus({ preventScroll: true });
+    toc.hidden = false;
+    toc.inert = !open;
+    toc.setAttribute('aria-hidden', String(!open));
     dialog.classList.toggle('toc-open', open);
+    rightEdge.hidden = open;
     find('#readerTocToggle').setAttribute('aria-expanded', String(open));
+  }
+  function revealToolbar(show) {
+    clearTimeout(hideTimers.toolbar); hideTimers.toolbar = null;
+    const collapsed = dialog.classList.contains('toolbar-collapsed');
+    const visible = !collapsed || show;
+    if (!visible && toolbar.contains(document.activeElement)) viewport.focus({ preventScroll: true });
+    toolbar.inert = !visible;
+    toolbar.setAttribute('aria-hidden', String(!visible));
+    dialog.classList.toggle('toolbar-revealed', collapsed && show);
+    topEdge.hidden = !collapsed || show;
+  }
+  function scheduleHide(panel) {
+    const element = panel === 'toolbar' ? toolbar : toc;
+    if (hideTimers[panel] || (keyboardNavigation && element.contains(document.activeElement))) return;
+    hideTimers[panel] = setTimeout(() => {
+      hideTimers[panel] = null;
+      if (keyboardNavigation && element.contains(document.activeElement)) return;
+      if (panel === 'toolbar') revealToolbar(false);
+      else setToc(false);
+    }, 200);
   }
   function syncToolbarLabels() {
     const collapsed = dialog.classList.contains('toolbar-collapsed');
@@ -122,8 +152,7 @@ export function createReader({ getSource }) {
   }
   function setToolbarCollapsed(collapsed) {
     dialog.classList.toggle('toolbar-collapsed', collapsed);
-    find('#readerToolbarPanel').inert = collapsed;
-    find('#readerToolbarPanel').setAttribute('aria-hidden', String(collapsed));
+    revealToolbar(false);
     find('#readerToolbarToggle').setAttribute('aria-expanded', String(!collapsed));
     syncToolbarLabels();
   }
@@ -162,7 +191,7 @@ export function createReader({ getSource }) {
       button.textContent = title;
       button.setAttribute('aria-current', String(index === chapterIndex));
       button.addEventListener('click', () => {
-        if (matchMedia('(max-width: 760px)').matches) setToc(false);
+        setToc(false);
         void navigate(index);
       });
       tocList.appendChild(button);
@@ -320,6 +349,7 @@ export function createReader({ getSource }) {
     rendering = false;
     if (fullscreenElement() === shell) void exitFullscreen().catch(() => {});
     touch = null;
+    for (const panel of ['toolbar', 'toc']) { clearTimeout(hideTimers[panel]); hideTimers[panel] = null; }
     clearTimeout(noticeTimer); find('#readerNotice').hidden = true;
     dialog.close();
     document.body.classList.remove('reader-open');
@@ -329,7 +359,7 @@ export function createReader({ getSource }) {
     if (dialog.open) return;
     dialog.showModal(); document.body.classList.add('reader-open');
     setToolbarCollapsed(false);
-    setToc(!matchMedia('(max-width:760px)').matches);
+    setToc(false);
     applyPreferences();
     const token = ++generation;
     rendering = true;
@@ -385,8 +415,49 @@ export function createReader({ getSource }) {
   dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
   previous.addEventListener('click', () => void navigate(chapterIndex - 1));
   next.addEventListener('click', () => void navigate(chapterIndex + 1));
-  find('#readerTocToggle').addEventListener('click', () => setToc(toc.hidden));
+  find('#readerTocToggle').addEventListener('click', () => setToc(!dialog.classList.contains('toc-open')));
   find('#readerToolbarToggle').addEventListener('click', () => setToolbarCollapsed(!dialog.classList.contains('toolbar-collapsed')));
+  shell.addEventListener('pointermove', event => {
+    if (event.pointerType !== 'mouse' && event.pointerType !== 'pen') return;
+    if (event.movementX || event.movementY) keyboardNavigation = false;
+    const bounds = shell.getBoundingClientRect();
+    if (dialog.classList.contains('toolbar-collapsed')) {
+      if (event.clientY <= bounds.top + 12 || toolbar.contains(event.target)) revealToolbar(true);
+      else scheduleHide('toolbar');
+    }
+    if (event.clientX >= bounds.right - 12 || toc.contains(event.target)) setToc(true);
+    else scheduleHide('toc');
+  });
+  shell.addEventListener('pointerleave', event => {
+    if (event.pointerType !== 'mouse' && event.pointerType !== 'pen') return;
+    scheduleHide('toolbar'); scheduleHide('toc');
+  });
+  shell.addEventListener('pointerdown', event => {
+    keyboardNavigation = false;
+    if (dialog.classList.contains('toolbar-collapsed') && !toolbar.contains(event.target) && event.target !== topEdge) revealToolbar(false);
+    if (!toc.contains(event.target) && event.target !== rightEdge && event.target !== find('#readerTocToggle')) setToc(false);
+  });
+  for (const [edge, panel] of [[topEdge, 'toolbar'], [rightEdge, 'toc']]) {
+    const reveal = () => panel === 'toolbar' ? revealToolbar(true) : setToc(true);
+    edge.addEventListener('pointerenter', event => { if (event.pointerType === 'mouse' || event.pointerType === 'pen') reveal(); });
+    edge.addEventListener('pointerdown', event => { event.preventDefault(); reveal(); });
+    edge.addEventListener('focus', () => {
+      keyboardNavigation = true;
+      reveal();
+      requestAnimationFrame(async () => {
+        const element = panel === 'toolbar' ? toolbar : toc;
+        await Promise.allSettled((element.getAnimations?.() || []).map(animation => animation.finished));
+        if (!dialog.open || (panel === 'toolbar' ? toolbar.inert : toc.inert)) return;
+        (panel === 'toolbar' ? find('#readerTocToggle') : search).focus({ preventScroll: true });
+      });
+    });
+  }
+  for (const [element, panel] of [[toolbar, 'toolbar'], [toc, 'toc']]) {
+    element.addEventListener('pointerleave', event => {
+      if (event.pointerType === 'mouse' || event.pointerType === 'pen') scheduleHide(panel);
+    });
+    element.addEventListener('focusout', () => scheduleHide(panel));
+  }
   search.addEventListener('input', renderToc);
   viewport.addEventListener('scroll', () => { updateProgress(); clearTimeout(saveTimer); saveTimer = setTimeout(savePosition, 300); }, { passive: true });
   viewport.addEventListener('wheel', event => {
@@ -429,6 +500,7 @@ export function createReader({ getSource }) {
     updateProgress();
   }).observe(viewport);
   dialog.addEventListener('keydown', event => {
+    if (event.key === 'Tab') keyboardNavigation = true;
     if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey || event.target.matches('input, textarea, [contenteditable]')) return;
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
       event.preventDefault(); void navigate(chapterIndex + (event.key === 'ArrowRight' ? 1 : -1));
@@ -467,7 +539,7 @@ export function createReader({ getSource }) {
     } finally { fullscreen.disabled = false; syncFullscreen(); }
   });
   for (const name of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(name, syncFullscreen);
-  syncFullscreen(); syncToolbarLabels();
+  syncFullscreen(); syncToolbarLabels(); setToc(false);
   window.addEventListener('epubloom:languagechange', () => {
     syncFullscreen(); syncToolbarLabels();
     if (book) { find('#readerBookTitle').textContent = book.title; renderToc(); updateProgress(); }
