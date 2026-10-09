@@ -42,7 +42,6 @@ const fileRemove = $('#fileRemove');
 const coverRow = $('#coverRow');
 const coverZone = $('#coverZone');
 const coverInput = $('#coverInput');
-const coverFileName = $('#coverFileName');
 const coverRemove = $('#coverRemove');
 const coverImage = $('#coverImage');
 const coverPlaceholder = $('#coverPlaceholder');
@@ -277,7 +276,6 @@ function clearCover() {
   coverImage.removeAttribute('src');
   coverImage.hidden = true;
   coverPlaceholder.removeAttribute('hidden');
-  coverFileName.hidden = true;
   coverDimensions.hidden = true;
   coverFit.hidden = true;
   coverRemove.hidden = true;
@@ -346,8 +344,6 @@ async function prepareCover(file, fit) {
     coverImage.src = previewUrl;
     coverImage.hidden = false;
     coverPlaceholder.setAttribute('hidden', '');
-    coverFileName.textContent = file.name;
-    coverFileName.hidden = false;
     coverFit.hidden = false;
     coverRemove.hidden = false;
     coverTextOptions.hidden = false;

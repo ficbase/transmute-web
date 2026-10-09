@@ -739,13 +739,6 @@ svg {
   line-height:1.6;
 }
 
-.cover-filename {
-  margin:8px 0 0;
-  overflow-wrap:anywhere;
-  font-size:11px;
-  color:var(--ink);
-}
-
 .cover-dimensions {
   font-size:10px;
 }
