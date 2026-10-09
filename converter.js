@@ -9,8 +9,11 @@ const state = {
   coverFit: 'contain',
   coverPreviewUrl: null,
   coverProcessing: false,
+  coverPendingSource: null,
+  coverPendingFit: null,
+  coverTextSnapshot: null,
+  coverTextApplied: false,
   result: null,
-  resultName: null,
   mode: null,
   busy: false,
   operation: null,
@@ -42,7 +45,12 @@ const coverImage = $('#coverImage');
 const coverPlaceholder = $('#coverPlaceholder');
 const coverFit = $('#coverFit');
 const coverDimensions = $('#coverDimensions');
+const coverTextToggle = $('#coverTextToggle');
+const coverTextOptions = $('#coverTextOptions');
 let coverRequest = 0;
+let coverTextTimer;
+const exportNameRow = $('#exportNameRow');
+const exportName = $('#exportName');
 const convertBtn = $('#convertBtn');
 const encodingActions = $('#encodingActions');
 const encodingBtn = $('#encodingBtn');
@@ -85,12 +93,31 @@ function getExt(name) {
   return i >= 0 ? name.slice(i + 1).toLowerCase() : '';
 }
 
+function outputFilename(extension) {
+  const fallback = state.file?.name.replace(/\.(txt|epub)$/i, '') || 'book';
+  let base = (exportName.value.trim() || fallback).replace(/\.(txt|epub)$/i, '')
+    .replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g, '_').replace(/[. ]+$/g, '');
+  base = [...base].slice(0, 180).join('').replace(/[. ]+$/g, '') || 'book';
+  if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(base)) base = '_' + base;
+  return base + '.' + extension;
+}
+
+function renderExportName() {
+  const extension = state.mode === 'epub2txt' ? 'txt' : 'epub';
+  $('#exportExtension').textContent = '.' + extension;
+  $('#exportNameHint').textContent = t('export.preview', { name: outputFilename(extension) });
+}
+exportName.addEventListener('input', renderExportName);
+
 function updateUI() {
   const hasFile = !!state.file;
   fileRow.style.display = hasFile ? 'flex' : 'none';
   dropzone.style.display = hasFile ? 'none' : 'block';
 
   const isTxt = state.mode === 'txt2epub';
+  exportNameRow.hidden = !hasFile;
+  exportName.disabled = state.busy;
+  renderExportName();
   coverRow.style.display = isTxt ? 'grid' : 'none';
   metaSection.style.display = isTxt ? 'block' : 'none';
   convertBtn.disabled = !state.file || state.busy || state.coverProcessing || state.loadFailed;
@@ -107,6 +134,7 @@ function updateUI() {
   coverInput.disabled = state.busy || state.coverProcessing;
   coverZone.disabled = state.busy || state.coverProcessing;
   coverRemove.disabled = state.busy || state.coverProcessing;
+  coverTextToggle.disabled = state.busy || state.coverProcessing;
   coverRow.setAttribute('aria-busy', String(state.coverProcessing));
   $('#coverChooseLabel').textContent = t(state.coverProcessing ? 'cover.processing' : state.cover ? 'cover.change' : 'cover.choose');
   coverFit.querySelectorAll('button').forEach(button => {
@@ -130,6 +158,7 @@ function setFile(file) {
   state.mode = mode;
   state.result = null;
   clearCover();
+  exportName.value = file.name.replace(/\.(txt|epub)$/i, '');
   state.sourceEncoding = null;
   state.encodingInvalid = false;
   closeEncodingMenu();
@@ -214,8 +243,12 @@ coverFit.querySelectorAll('button').forEach(button => button.addEventListener('c
 
 function clearCover() {
   coverRequest++;
+  clearTimeout(coverTextTimer);
   if (state.coverPreviewUrl) URL.revokeObjectURL(state.coverPreviewUrl);
-  Object.assign(state, { cover: null, coverSource: null, coverPreviewUrl: null, coverProcessing: false, coverFit: 'contain' });
+  Object.assign(state, { cover: null, coverSource: null, coverPreviewUrl: null, coverProcessing: false, coverFit: 'contain',
+    coverPendingSource: null, coverPendingFit: null, coverTextSnapshot: null, coverTextApplied: false });
+  coverTextToggle.checked = false;
+  coverTextOptions.hidden = true;
   coverInput.value = '';
   coverImage.removeAttribute('src');
   coverImage.hidden = true;
@@ -232,6 +265,12 @@ async function prepareCover(file, fit) {
   const request = ++coverRequest;
   const originalUrl = URL.createObjectURL(file);
   state.coverProcessing = true;
+  state.coverPendingSource = file;
+  state.coverPendingFit = fit;
+  const overlay = coverTextToggle.checked;
+  const title = metaTitle.value.trim();
+  const author = metaAuthor.value.trim();
+  const snapshot = coverTextSignature();
   coverDimensions.hidden = false;
   updateUI();
   try {
@@ -262,11 +301,13 @@ async function prepareCover(file, fit) {
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       draw(Math.min(canvas.width / image.naturalWidth, canvas.height / image.naturalHeight));
     } else draw(fillScale);
+    if (overlay) drawCoverText(ctx, title, author);
     const blob = await new Promise((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error('IMAGE_EXPORT')), 'image/jpeg', .92));
     if (request !== coverRequest) return;
     const previewUrl = URL.createObjectURL(blob);
     const previousUrl = state.coverPreviewUrl;
-    Object.assign(state, { cover: new File([blob], 'cover.jpg', { type: 'image/jpeg' }), coverSource: file, coverFit: fit, coverPreviewUrl: previewUrl });
+    Object.assign(state, { cover: new File([blob], 'cover.jpg', { type: 'image/jpeg' }), coverSource: file, coverFit: fit, coverPreviewUrl: previewUrl,
+      coverTextSnapshot: snapshot, coverTextApplied: overlay });
     coverImage.src = previewUrl;
     coverImage.hidden = false;
     coverPlaceholder.setAttribute('hidden', '');
@@ -274,19 +315,103 @@ async function prepareCover(file, fit) {
     coverFileName.hidden = false;
     coverFit.hidden = false;
     coverRemove.hidden = false;
+    coverTextOptions.hidden = false;
     if (previousUrl) URL.revokeObjectURL(previousUrl);
     state.result = null;
     downloadBtn.classList.remove('show');
     setStatus(state.loadFailed ? 'status.loadFailed' : '');
+    return true;
   } catch {
-    if (request === coverRequest) setStatus('status.coverInvalid', 'error');
+    if (request === coverRequest) {
+      coverTextToggle.checked = state.coverTextApplied;
+      setStatus('status.coverInvalid', 'error');
+    }
   } finally {
     URL.revokeObjectURL(originalUrl);
     if (request === coverRequest) {
       state.coverProcessing = false;
+      state.coverPendingSource = null;
+      state.coverPendingFit = null;
       coverDimensions.hidden = !state.cover;
       updateUI();
     }
+  }
+}
+
+function coverTextSignature() {
+  return JSON.stringify(coverTextToggle.checked ? [true, metaTitle.value.trim(), metaAuthor.value.trim()] : [false]);
+}
+
+function refreshCoverText() {
+  const source = state.coverPendingSource || state.coverSource;
+  const fit = state.coverPendingFit || state.coverFit;
+  if (!source || state.busy) return;
+  clearTimeout(coverTextTimer);
+  coverRequest++; // Edits invalidate any image still being prepared.
+  state.coverProcessing = true;
+  state.result = null;
+  downloadBtn.classList.remove('show');
+  updateUI();
+  coverTextTimer = setTimeout(() => prepareCover(source, fit), 160);
+}
+coverTextToggle.addEventListener('change', refreshCoverText);
+for (const input of [metaTitle, metaAuthor]) input.addEventListener('input', () => {
+  if (coverTextToggle.checked) refreshCoverText();
+});
+
+function drawCoverText(ctx, title, author) {
+  if (!title && !author) return;
+  const width = 1008;
+  const font = '"Songti SC", "Noto Serif CJK SC", Georgia, serif';
+  function layout(text, startSize, minSize, maxLines, weight) {
+    const normalized = Array.from(text.replace(/\s+/g, ' '));
+    const characters = normalized.slice(0, 600);
+    let lines, size;
+    for (size = startSize; size >= minSize; size -= 4) {
+      ctx.font = `${weight} ${size}px ${font}`;
+      lines = [];
+      let line = '';
+      for (const character of characters) {
+        if (line && ctx.measureText(line + character).width > width) {
+          const space = line.lastIndexOf(' ');
+          if (space > line.length / 2) { lines.push(line.slice(0, space)); line = line.slice(space + 1) + character; }
+          else { lines.push(line); line = character; }
+        } else line += character;
+      }
+      if (line) lines.push(line.trim());
+      if (lines.length <= maxLines) break;
+    }
+    size = Math.max(size, minSize);
+    ctx.font = `${weight} ${size}px ${font}`;
+    if (lines.length > maxLines || characters.length < normalized.length) {
+      lines = lines.slice(0, maxLines);
+      let last = lines.at(-1) || '';
+      while (last && ctx.measureText(last + '…').width > width) last = Array.from(last).slice(0, -1).join('');
+      lines[lines.length - 1] = last + '…';
+    }
+    return { lines, size, height: lines.length * size * 1.3 };
+  }
+  const bookTitle = layout(title, 84, 36, 4, 600);
+  const bookAuthor = layout(author, 40, 28, 2, 400);
+  const gap = title && author ? 34 : 0;
+  const blockHeight = bookTitle.height + bookAuthor.height + gap;
+  const top = 1800 - 140 - blockHeight;
+  const gradient = ctx.createLinearGradient(0, Math.max(0, top - 240), 0, 1800);
+  gradient.addColorStop(0, '#10201b00');
+  gradient.addColorStop(.55, '#10201bb8');
+  gradient.addColorStop(1, '#10201bf2');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 1200, 1800);
+  ctx.fillStyle = '#fffefa';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.shadowColor = '#00000055';
+  ctx.shadowBlur = 6;
+  let y = top;
+  for (const [block, weight] of [[bookTitle, 600], [bookAuthor, 400]]) {
+    ctx.font = `${weight} ${block.size}px ${font}`;
+    for (const line of block.lines) { ctx.fillText(line, 600, y); y += block.size * 1.3; }
+    if (block === bookTitle) y += gap;
   }
 }
 
@@ -306,6 +431,7 @@ async function autoFillMeta(file) {
       const a = detect_author(txt);
       if (a) metaAuthor.value = a;
     }
+    if (coverTextToggle.checked) refreshCoverText();
   } catch (_) { /* ignore read errors */ }
 }
 
@@ -411,7 +537,7 @@ encodingBtn.addEventListener('click', async () => {
     try { text = decodeBuffer(buf, enc, true); }
     catch { setStatus('status.encodingInvalid', 'error'); return; }
     const bytes = encode_text(text, state.targetEncoding);
-    const name = state.file.name.replace(/\.txt$/i, '') + '.' + state.targetEncoding.replaceAll('-', '') + '.txt';
+    const name = outputFilename(state.targetEncoding.replaceAll('-', '') + '.txt');
     downloadFile(bytes, name, 'text/plain;charset=' + state.targetEncoding);
     setStatus('status.encodingSuccess', 'success', { name });
   } catch (e) {
@@ -436,6 +562,11 @@ convertBtn.addEventListener('click', async () => {
   try {
     await wasmReady;
     await state.metadataReady;
+    if (state.coverSource && coverTextToggle.checked && state.coverTextSnapshot !== coverTextSignature()) {
+      clearTimeout(coverTextTimer);
+      const prepared = await prepareCover(state.coverSource, state.coverFit);
+      if (!prepared || state.coverTextSnapshot !== coverTextSignature()) throw new Error(t('status.coverInvalid'));
+    }
     const buf = await state.file.arrayBuffer();
 
     if (state.mode === 'txt2epub') {
@@ -453,7 +584,6 @@ convertBtn.addEventListener('click', async () => {
         return;
       }
       state.result = new Uint8Array(epubBytes);
-      state.resultName = state.file.name.replace(/\.txt$/i, '') + '.epub';
     } else {
       const epubData = new Uint8Array(buf);
       const txt = epub_to_txt(epubData);
@@ -462,7 +592,6 @@ convertBtn.addEventListener('click', async () => {
         return;
       }
       state.result = new TextEncoder().encode(txt);
-      state.resultName = state.file.name.replace(/\.epub$/i, '') + '.txt';
     }
 
     setStatus('status.success', 'success');
@@ -479,7 +608,7 @@ convertBtn.addEventListener('click', async () => {
 // ── Download ───────────────────────────────────────────────────
 downloadBtn.addEventListener('click', () => {
   if (!state.result) return;
-  downloadFile(state.result, state.resultName, state.mode === 'txt2epub' ? 'application/epub+zip' : 'text/plain;charset=utf-8');
+  downloadFile(state.result, outputFilename(state.mode === 'txt2epub' ? 'epub' : 'txt'), state.mode === 'txt2epub' ? 'application/epub+zip' : 'text/plain;charset=utf-8');
 });
 
 function downloadFile(bytes, name, type) {
