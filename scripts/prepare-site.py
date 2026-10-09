@@ -25,7 +25,12 @@ def main():
     site_url = site_url.rstrip("/") + "/"
     publisher = os.environ.get("ADSENSE_PUBLISHER_ID", "").strip()
     noindex = os.environ.get("SITE_NOINDEX", "0") == "1"
-    baidu_verification = os.environ.get("BAIDU_SITE_VERIFICATION", "").strip()
+    # The public verification code must survive subsequent production builds.
+    verification_file = ROOT / "baidu-site-verification.txt"
+    baidu_verification = os.environ.get("BAIDU_SITE_VERIFICATION")
+    if baidu_verification is None:
+        baidu_verification = verification_file.read_text(encoding="utf-8") if verification_file.is_file() else ""
+    baidu_verification = baidu_verification.strip()
     if baidu_verification and not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", baidu_verification):
         raise SystemExit("BAIDU_SITE_VERIFICATION must contain only the verification tag's content value")
     if publisher and not re.fullmatch(r"ca-pub-\d{16}", publisher):

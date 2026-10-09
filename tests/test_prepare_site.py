@@ -41,8 +41,11 @@ class PrepareSiteTests(unittest.TestCase):
         shutil.copy2(repo / 'assets/social-card.png', self.root / 'assets/social-card.png')
         (self.root / '.key').write_text('private-test-fixture')
 
-    def build(self, publisher='', site_url='https://epubloom.com/', noindex=False, baidu_verification=''):
-        environment = dict(os.environ, SITE_URL=site_url, ADSENSE_PUBLISHER_ID=publisher, SITE_NOINDEX='1' if noindex else '0', BAIDU_SITE_VERIFICATION=baidu_verification)
+    def build(self, publisher='', site_url='https://epubloom.com/', noindex=False, baidu_verification=None):
+        environment = dict(os.environ, SITE_URL=site_url, ADSENSE_PUBLISHER_ID=publisher, SITE_NOINDEX='1' if noindex else '0')
+        environment.pop('BAIDU_SITE_VERIFICATION', None)
+        if baidu_verification is not None:
+            environment['BAIDU_SITE_VERIFICATION'] = baidu_verification
         subprocess.run([sys.executable, str(self.root / 'scripts/prepare-site.py')], env=environment, check=True, capture_output=True)
         return self.root / 'dist'
 
@@ -94,6 +97,24 @@ class PrepareSiteTests(unittest.TestCase):
             self.assertNotIn('baidu-site-verification', (output / 'index.html').read_text())
         with self.assertRaises(subprocess.CalledProcessError):
             self.build(baidu_verification='"><script>invalid</script>')
+
+    def test_persisted_public_verification_survives_builds_and_can_be_overridden(self):
+        verification = self.root / 'baidu-site-verification.txt'
+        verification.write_text('code-Persisted_123\n')
+        output = self.build()
+        for page in (*self.pages, *('zh/' + p for p in self.pages)):
+            self.assertIn('name="baidu-site-verification" content="code-Persisted_123"', (output / page).read_text().split('</head>')[0])
+        self.assertFalse((output / verification.name).exists())
+        self.build(baidu_verification='code-Override')
+        self.assertIn('content="code-Override"', (output / 'index.html').read_text())
+        self.build(baidu_verification='')
+        self.assertNotIn('baidu-site-verification', (output / 'index.html').read_text())
+        self.build(site_url='https://ficbase.github.io/transmute-web/', noindex=True)
+        for page in (*self.pages, *('zh/' + p for p in self.pages)):
+            self.assertNotIn('baidu-site-verification', (output / page).read_text())
+        verification.write_text('<invalid>')
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.build()
 
     def test_translation_and_wasm_changes_propagate_through_module_versions(self):
         output = self.build()
