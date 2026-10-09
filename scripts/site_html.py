@@ -109,10 +109,10 @@ def render_page(source, page, language, messages, site_url, pages, versions):
                                'data-language': language})
         if node.attrs.get('id') == 'languageSelect':
             node.attrs['disabled'] = None
-        if node.tag == 'option' and node.attrs.get('value') in ('en', 'zh'):
-            node.attrs.pop('selected', None)
-            if node.attrs['value'] == language:
-                node.attrs['selected'] = None
+        if 'data-language-current' in node.attrs:
+            node.children = ['简体中文' if language == 'zh' else 'English']
+        if 'data-language-option' in node.attrs:
+            node.attrs['aria-checked'] = str(node.attrs['data-language-option'] == language).lower()
         if 'data-sample-link' in node.attrs:
             node.attrs['href'] = 'examples/sample.txt' if language == 'zh' else 'examples/sample-en.txt'
         if node.attrs.get('id') == 'metaLang':
