@@ -130,6 +130,8 @@ metaTitle.addEventListener('input', syncExportName);
 
 function updateUI() {
   const hasFile = !!state.file;
+  $('.converter-card').classList.toggle('has-file', hasFile);
+  $('#converterActions').hidden = !hasFile;
   fileRow.style.display = hasFile ? 'flex' : 'none';
   dropzone.style.display = hasFile ? 'none' : 'block';
 

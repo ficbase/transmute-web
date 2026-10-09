@@ -2289,6 +2289,14 @@ html[lang=zh-CN] .converter-page .hero h1 { font-size:32px; line-height:1.3; }
   border-radius:12px;
 }
 .converter-actions h3 { margin:0 0 16px; font-size:14px; font-weight:600; }
+.converter-actions[hidden] { display:none; }
+.converter-page .converter-card:not(.has-file) {
+  grid-template-columns:minmax(0,1fr);
+  grid-template-areas:"heading" "file";
+  grid-template-rows:auto auto;
+}
+.converter-page .converter-card > .status { grid-column:1 / -1; margin:0; }
+.converter-page .converter-card > .status:empty { display:none; }
 .converter-actions .export-name { margin-top:0; }
 .converter-actions .btn-primary { margin-top:14px; }
 .converter-actions .encoding-actions { padding:14px 0 0; border:0; border-top:1px solid #dbe3d1; border-radius:0; background:transparent; }
