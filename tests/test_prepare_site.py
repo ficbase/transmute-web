@@ -30,7 +30,9 @@ class PrepareSiteTests(unittest.TestCase):
         for name, text in {'site.css': 'body { color: green; }', 'favicon.svg': '<svg/>',
                            'cover-editor.js': "import './i18n.js';",
                            'reader.js': "import './i18n.js'; import './pkg/transmute_web.js';",
-                           'converter.js': "import './i18n.js'; import './cover-editor.js'; import './reader.js'; import './pkg/transmute_web.js';"}.items():
+                           'book-model.mjs': 'export const model = 1;',
+                           'book-workbench.js': "import './book-model.mjs'; import './reader.js'; import './i18n.js';",
+                           'converter.js': "import './i18n.js'; import './cover-editor.js'; import './reader.js'; import './book-workbench.js'; import './pkg/transmute_web.js';"}.items():
             (self.root / name).write_text(text)
         (self.root / 'pkg').mkdir()
         (self.root / 'pkg/transmute_web.js').write_text("new URL('transmute_web_bg.wasm', import.meta.url)")
@@ -38,7 +40,7 @@ class PrepareSiteTests(unittest.TestCase):
         (self.root / 'examples').mkdir()
         (self.root / 'examples/sample.txt').write_text('示例')
         (self.root / 'examples/sample-en.txt').write_text('sample')
-        for name in ('sample.epub', 'sample-en.epub', 'sample-cover.svg', 'sample-en-cover.svg'):
+        for name in ('sample.epub', 'sample-en.epub', 'sample-cover.svg', 'sample-en-cover.svg', 'chapter-check-en.txt', 'chapter-check-zh.txt'):
             shutil.copy2(repo / 'examples' / name, self.root / 'examples' / name)
         (self.root / 'assets').mkdir()
         shutil.copy2(repo / 'assets/social-card.png', self.root / 'assets/social-card.png')
@@ -62,8 +64,10 @@ class PrepareSiteTests(unittest.TestCase):
         self.assertEqual(public, {
             *self.pages, *('zh/' + page for page in self.pages),
             'site.css', 'favicon.svg', 'converter.js', 'cover-editor.js', 'reader.js', 'i18n.js', 'examples/sample.txt', 'examples/sample-en.txt',
+            'book-model.mjs', 'book-workbench.js',
             'assets/social-card.png',
             'examples/sample.epub', 'examples/sample-en.epub', 'examples/sample-cover.svg', 'examples/sample-en-cover.svg',
+            'examples/chapter-check-en.txt', 'examples/chapter-check-zh.txt',
             'pkg/transmute_web.js', 'pkg/transmute_web_bg.wasm', 'robots.txt',
             'sitemap.xml', 'sitemap-zh.xml', 'baidu-urls.txt', '.nojekyll', 'ads.txt',
         })
@@ -232,7 +236,8 @@ class PrepareSiteTests(unittest.TestCase):
             app = next(item for item in graph if item['@type'] == 'WebApplication')
             self.assertEqual(app['softwareHelp'], reader_url)
             self.assertEqual(app['inLanguage'], locale)
-            self.assertEqual(len(app['featureList']), 5)
+            self.assertEqual(len(app['featureList']), 7)
+            self.assertTrue(any(('verification' in feature or '核对' in feature) for feature in app['featureList']))
             self.assertNotIn('aggregateRating', app)
             self.assertIn(reader_url, (output / 'sitemap.xml').read_text())
         self.assertIn('https://epubloom.com/zh/online-reader.html', (output / 'baidu-urls.txt').read_text())

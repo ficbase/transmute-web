@@ -19,3 +19,5 @@
 应在完整验证线上示例后评估复审；本次不替用户勾选“我确认已修复所有问题”，也不把代码发布描述为审核通过。
 
 依据：[AdSense 网站准备要求](https://support.google.com/adsense/answer/7299563)、[低价值或无发布商内容页面的政策](https://support.google.com/publisherpolicies/answer/11112688)。
+
+后续同日更新：用户另行明确授权加强章节体检、编辑与导出核对后提交复审。该后续工作见 [章节工作区记录](book-workbench-2026-10-19.md)；上面的“本次不替用户勾选”仅描述前一轮示例内容更新。
