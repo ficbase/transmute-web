@@ -37,6 +37,9 @@ curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 # 构建 WASM
 wasm-pack build --target web --locked
 
+# 用同一转换器生成并核对公开 TXT / EPUB 示例及真实封面
+node scripts/build-examples.mjs
+
 # 生成仅包含公开页面、示例与 WASM 的发布目录
 python3 scripts/prepare-site.py
 
@@ -46,6 +49,10 @@ python3 -m http.server -d dist 8080
 ```
 
 阅读交互回归检查位于 `tests/reader-controls.cjs`。在已安装 Playwright 及 Chromium 的环境中，启动预览后运行 `SITE_TEST_URL=http://127.0.0.1:8080/ node tests/reader-controls.cjs`；自定义 Chromium 路径可用 `PLAYWRIGHT_CHROMIUM_EXECUTABLE` 指定。检查实际全屏进出、拒绝提示、标题栏与目录的边缘呼出、完全隐藏及阅读位置、滚轮/触摸跨章、惯性和首末章节边界，以及中英文小屏布局。
+
+首页的“试用 TXT / EPUB”直接载入公开示例；已选择文件时按钮停用，避免覆盖当前稿件。示例加载失败可重试，加载期间选择自己的文件会使旧请求失效。原始 TXT、同一 WASM 转换器生成的 EPUB 和从 EPUB 提取的封面均可公开核对；`scripts/build-examples.mjs` 检查两个章节链接与每个非空原文行，修改转换器或示例后需重新生成。CI 在构建 WASM 后执行同一检查。
+
+`tests/sample-workflow.cjs` 覆盖中英文示例的阅读、双向转换、下载内容、手机布局、加载失败恢复，以及加载期间选择私人文件时不被示例覆盖的场景。它使用与阅读交互检查相同的预览地址及浏览器环境变量。
 
 ## 部署
 

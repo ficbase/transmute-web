@@ -38,6 +38,8 @@ class PrepareSiteTests(unittest.TestCase):
         (self.root / 'examples').mkdir()
         (self.root / 'examples/sample.txt').write_text('示例')
         (self.root / 'examples/sample-en.txt').write_text('sample')
+        for name in ('sample.epub', 'sample-en.epub', 'sample-cover.svg', 'sample-en-cover.svg'):
+            shutil.copy2(repo / 'examples' / name, self.root / 'examples' / name)
         (self.root / 'assets').mkdir()
         shutil.copy2(repo / 'assets/social-card.png', self.root / 'assets/social-card.png')
         (self.root / '.key').write_text('private-test-fixture')
@@ -61,6 +63,7 @@ class PrepareSiteTests(unittest.TestCase):
             *self.pages, *('zh/' + page for page in self.pages),
             'site.css', 'favicon.svg', 'converter.js', 'cover-editor.js', 'reader.js', 'i18n.js', 'examples/sample.txt', 'examples/sample-en.txt',
             'assets/social-card.png',
+            'examples/sample.epub', 'examples/sample-en.epub', 'examples/sample-cover.svg', 'examples/sample-en-cover.svg',
             'pkg/transmute_web.js', 'pkg/transmute_web_bg.wasm', 'robots.txt',
             'sitemap.xml', 'sitemap-zh.xml', 'baidu-urls.txt', '.nojekyll', 'ads.txt',
         })
@@ -79,6 +82,19 @@ class PrepareSiteTests(unittest.TestCase):
         self.build(site_url='https://ficbase.github.io/transmute-web/', noindex=True)
         for page in ('index.html', 'zh/index.html', 'gbk-to-utf8.html'):
             self.assertIn('content="noindex, follow, max-image-preview:large"', (output / page).read_text())
+
+    def test_worked_examples_are_localized_without_javascript(self):
+        output = self.build()
+        for language, prefix, name in (('en', '', 'sample-en'), ('zh', 'zh/', 'sample')):
+            home = (output / (prefix + 'index.html')).read_text()
+            self.assertIn(f'src="/examples/{name}-cover.svg"', home)
+            self.assertIn(f'href="/examples/{name}.epub"', home)
+            self.assertIn('data-demo-file="txt"', home)
+            self.assertIn('data-demo-file="epub"', home)
+            self.assertIn('两个章节' if language == 'zh' else '2 chapters', home)
+            guide = (output / (prefix + 'guide.html')).read_text()
+            self.assertIn(f'href="/examples/{name}.epub"', guide)
+            self.assertIn(f'href="/{prefix}#converter"', guide)
 
     def test_baidu_submission_files_and_verification_are_scoped_to_the_build(self):
         for site_url in ('https://epubloom.com/', 'https://ficbase.github.io/transmute-web/'):

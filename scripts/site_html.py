@@ -115,6 +115,11 @@ def render_page(source, page, language, messages, site_url, pages, versions, noi
             node.attrs['aria-checked'] = str(node.attrs['data-language-option'] == language).lower()
         if 'data-sample-link' in node.attrs:
             node.attrs['href'] = 'examples/sample.txt' if language == 'zh' else 'examples/sample-en.txt'
+        example_name = 'sample' if language == 'zh' else 'sample-en'
+        if 'data-example-epub' in node.attrs:
+            node.attrs['href'] = f'examples/{example_name}.epub'
+        if 'data-example-cover' in node.attrs:
+            node.attrs['src'] = f'examples/{example_name}-cover.svg'
         if node.attrs.get('id') == 'metaLang':
             node.attrs['value'] = language
         for attr in ('href', 'src'):
