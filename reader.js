@@ -30,7 +30,7 @@ function bookPath(reference, base = '') {
   } catch { return null; }
 }
 
-function epubBook(source) {
+export function epubBook(source) {
   const entries = new Set(JSON.parse(reader_entries(source.bytes)));
   const read = path => {
     if (!entries.has(path)) throw new Error('READER_EPUB');
@@ -56,6 +56,7 @@ function epubBook(source) {
   }).filter(Boolean);
   if (!chapters.length) throw new Error('READER_EMPTY');
   const titles = new Map();
+  const volumes = new Map();
   try {
     const nav = [...manifest.values()].find(node => (node.getAttribute('properties') || '').split(/\s+/).includes('nav'));
     const ncx = manifest.get(elements(opf, 'spine')[0]?.getAttribute('toc'));
@@ -68,11 +69,23 @@ function epubBook(source) {
         const reference = nav ? node.getAttribute('href') : elements(node, 'content')[0]?.getAttribute('src');
         const label = nav ? node.textContent.trim() : textOf(node, 'navLabel');
         const resolved = bookPath(reference, path);
-        if (resolved && label && !titles.has(resolved.path)) titles.set(resolved.path, label);
+        if (resolved && label && !titles.has(resolved.path)) {
+          titles.set(resolved.path, label);
+          // A nested TOC may use a non-linked label for a volume. Preserve the
+          // nearest such group without mistaking a chapter link for a volume.
+          let parent = node.parentElement;
+          while (parent && parent !== toc) {
+            if (parent.localName === 'li') {
+              const group = [...parent.children].find(child => child.localName === 'span');
+              if (group?.textContent.trim()) { volumes.set(resolved.path, group.textContent.trim()); break; }
+            }
+            parent = parent.parentElement;
+          }
+        }
       }
     }
   } catch { /* Chapter headings remain usable when an optional navigation file is damaged. */ }
-  chapters.forEach(chapter => { chapter.title = titles.get(chapter.path) || ''; });
+  chapters.forEach(chapter => { chapter.title = titles.get(chapter.path) || ''; chapter.volume = volumes.get(chapter.path) || ''; });
   return { title: textOf(opf, 'title') || source.file.name.replace(/\.epub$/i, ''), author: textOf(opf, 'creator'), language: textOf(opf, 'language'), chapters, readXML, read };
 }
 

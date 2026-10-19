@@ -1,7 +1,8 @@
 import { t, getLanguage, createDisclosure } from './i18n.js';
 import { createCoverEditor, drawCoverText } from './cover-editor.js';
 import { createReader } from './reader.js';
-import init, { txt_to_epub, epub_to_txt, encode_text, init_panic_hook, set_timestamp, detect_title, detect_author } from './pkg/transmute_web.js';
+import { createWorkbench, formatText, verifyEPUB, verifyTXT } from './book-workbench.js';
+import init, { txt_to_epub, encode_text, init_panic_hook, set_timestamp, detect_title, detect_author } from './pkg/transmute_web.js';
 
 // ── State ──────────────────────────────────────────────────────
 const state = {
@@ -84,8 +85,7 @@ const coverEditor = createCoverEditor({
   onChange: () => refreshCoverText(),
 });
 $('#coverPreview').addEventListener('click', () => coverEditor.open());
-const reader = createReader({
-  getSource: async () => {
+async function selectedSource() {
     const file = state.file;
     if (!file) throw new Error('READER_EMPTY');
     if (file.size > 50 * 1024 * 1024) throw new Error('READER_SIZE');
@@ -99,6 +99,16 @@ const reader = createReader({
       ...(state.mode === 'txt2epub' ? { text: decodeBuffer(buffer, state.sourceEncoding || 'utf-8', true) } : {}),
       title: metaTitle.value, author: metaAuthor.value, language: metaLang.value,
     };
+}
+const reader = createReader({ getSource: selectedSource });
+const workbench = createWorkbench({
+  getSource: selectedSource,
+  onState: () => updateUI(),
+  onChange: () => {
+    state.result = null;
+    $('#exportReport').hidden = true;
+    downloadBtn.classList.remove('show');
+    setStatus('work.edited');
   },
 });
 
@@ -167,7 +177,9 @@ function updateUI() {
   $('#converterOptions').hidden = !isTxt;
   coverRow.style.display = isTxt ? 'grid' : 'none';
   metaSection.style.display = isTxt ? 'block' : 'none';
-  convertBtn.disabled = !state.file || state.busy || state.coverProcessing || state.loadFailed;
+  convertBtn.disabled = !state.file || !workbench.ready || state.busy || state.coverProcessing || state.loadFailed;
+  $('#inspectBtn').hidden = !hasFile;
+  workbench.setBusy(state.busy);
   convertBtn.textContent = t(state.busy && state.operation !== 'encoding' ? 'action.converting' : isTxt
     ? 'action.epub' : state.mode === 'epub2txt' ? 'action.txt' : 'action.choose');
   encodingActions.hidden = !isTxt;
@@ -209,6 +221,7 @@ function setFile(file) {
   state.file = file;
   state.mode = mode;
   state.result = null;
+  $('#exportReport').hidden = true;
   clearCover();
   state.exportNameEdited = false;
   exportName.value = file.name.replace(/\.(txt|epub)$/i, '');
@@ -224,6 +237,7 @@ function setFile(file) {
   // auto-fill metadata for txt files
   state.metadataReady = mode === 'txt2epub' ? autoFillMeta(file) : Promise.resolve();
   state.encodingReady = mode === 'txt2epub' ? detectSourceEncoding(file) : Promise.resolve();
+  void workbench.load();
 }
 
 async function detectSourceEncoding(file) {
@@ -258,7 +272,7 @@ sampleButtons.forEach(button => button.addEventListener('click', async () => {
   const request = ++sampleRequest;
   const language = getLanguage();
   const extension = button.dataset.demoFile === 'epub' ? 'epub' : 'txt';
-  const name = (language === 'zh' ? 'sample' : 'sample-en') + '.' + extension;
+  const name = button.dataset.demoFile === 'check' ? 'chapter-check-' + language + '.txt' : (language === 'zh' ? 'sample' : 'sample-en') + '.' + extension;
   state.sampleLoading = true;
   updateUI();
   setStatus('sample.loading');
@@ -298,8 +312,10 @@ fileRemove.addEventListener('click', () => {
   if (state.busy) return;
   reader.reset();
   state.file = null;
+  workbench.reset();
   state.mode = null;
   state.result = null;
+  $('#exportReport').hidden = true;
   clearCover();
   fileInput.value = '';
   downloadBtn.classList.remove('show');
@@ -317,6 +333,7 @@ coverRemove.addEventListener('click', () => {
   if (state.busy || state.coverProcessing) return;
   clearCover();
   state.result = null;
+  $('#exportReport').hidden = true;
   downloadBtn.classList.remove('show');
   updateUI();
   setStatus('');
@@ -413,6 +430,7 @@ async function prepareCover(file, fit) {
     coverTextOptions.hidden = false;
     if (previousUrl) URL.revokeObjectURL(previousUrl);
     state.result = null;
+    $('#exportReport').hidden = true;
     downloadBtn.classList.remove('show');
     setStatus(state.loadFailed ? 'status.loadFailed' : '');
     return true;
@@ -446,6 +464,7 @@ function refreshCoverText() {
   coverRequest++; // Edits invalidate any image still being prepared.
   state.coverProcessing = true;
   state.result = null;
+  $('#exportReport').hidden = true;
   downloadBtn.classList.remove('show');
   updateUI();
   coverTextTimer = setTimeout(() => prepareCover(source, fit), 160);
@@ -598,6 +617,7 @@ convertBtn.addEventListener('click', async () => {
   state.operation = 'epub';
   updateUI();
   setStatus('status.converting');
+  $('#exportReport').hidden = true;
   downloadBtn.classList.remove('show');
 
   try {
@@ -618,21 +638,23 @@ convertBtn.addEventListener('click', async () => {
         coverType = state.cover.type || 'image/jpeg';
         coverName = state.cover.name;
       }
-      const metaJson = collectMetadata();
+      const expected = await workbench.exportBook(JSON.parse(collectMetadata() || '{}'));
+      const metaJson = JSON.stringify(expected);
       const epubBytes = txt_to_epub(txt, coverData, coverType, coverName, metaJson);
       if (epubBytes.length === 0) {
         setStatus('status.failed', 'error');
         return;
       }
       state.result = new Uint8Array(epubBytes);
+      let checks;
+      try { checks = verifyEPUB(state.result, expected); }
+      catch { checks = { validation: false }; }
+      if (!workbench.showReport(checks, expected)) { state.result = null; setStatus('work.exportInvalid', 'error'); return; }
     } else {
-      const epubData = new Uint8Array(buf);
-      const txt = epub_to_txt(epubData);
-      if (txt.startsWith('[Error:')) {
-        setStatus('status.epubInvalid', 'error');
-        return;
-      }
+      const expected = await workbench.exportBook({});
+      const txt = formatText(expected);
       state.result = new TextEncoder().encode(txt);
+      if (!workbench.showReport(verifyTXT(state.result, expected), expected)) { state.result = null; setStatus('work.exportInvalid', 'error'); return; }
     }
 
     setStatus('status.success', 'success');
@@ -678,6 +700,13 @@ wasmReady.then(() => { if (state.statusKey === 'status.loading') setStatus(''); 
 });
 
 window.addEventListener('epubloom:languagechange', () => { updateUI(); renderStatus(); });
+for (const field of [metaTitle, metaAuthor, metaLang, metaDesc, metaPublisher, metaIdentifier, metaDate, metaRights, metaSubjects]) {
+  field.addEventListener('input', () => {
+    if (state.result) {
+      state.result = null; downloadBtn.classList.remove('show'); $('#exportReport').hidden = true; setStatus('work.edited');
+    }
+  });
+}
 metaLang.value = getLanguage() === 'zh' ? 'zh' : 'en';
 updateUI();
 renderStatus();

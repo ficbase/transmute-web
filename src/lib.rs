@@ -59,10 +59,12 @@ pub struct CoverImage {
     pub file_name: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Chapter {
     pub title: String,
     pub body: String,
+    #[serde(default)]
+    pub volume: String,
 }
 
 #[derive(Debug, Clone)]
@@ -96,6 +98,7 @@ struct EpubMetaInput {
     date: Option<String>,
     rights: Option<String>,
     subjects: Option<Vec<String>>,
+    chapters: Option<Vec<Chapter>>,
 }
 
 // ── WASM exports ─────────────────────────────────────────────────────
@@ -113,6 +116,7 @@ pub fn wasm_test() -> Vec<u8> {
         chapters: vec![Chapter {
             title: "Chapter 1".into(),
             body: "Hello, world!".into(),
+            volume: String::new(),
         }],
         cover: None,
     };
@@ -227,7 +231,7 @@ pub fn txt_to_epub(
         .unwrap_or_else(|| "untitled".into());
     let author = meta.author.unwrap_or(detected_author);
     let language = meta.language.unwrap_or_else(|| "en".into());
-    let chapters = split_into_chapters(txt, &language);
+    let chapters = meta.chapters.unwrap_or_else(|| split_into_chapters(txt, &language));
 
     let mut extra = HashMap::new();
     if let Some(d) = meta.description { extra.insert("dcterms:description".into(), d); }
@@ -401,7 +405,7 @@ fn parse_epub<R: Read + io::Seek>(reader: R) -> Result<Book, Error> {
         let href = manifest.get(idref).cloned().unwrap_or_default();
         let xhtml = read_zip_entry(&mut zip, &href).ok().unwrap_or_default();
         let (title, body) = parse_xhtml(&xhtml);
-        chapters.push(Chapter { title, body });
+        chapters.push(Chapter { title, body, volume: String::new() });
     }
 
     Ok(Book {
@@ -624,6 +628,8 @@ fn escape_xml(s: &str) -> String {
             '&' => escaped.push_str("&amp;"),
             '<' => escaped.push_str("&lt;"),
             '>' => escaped.push_str("&gt;"),
+            '"' => escaped.push_str("&quot;"),
+            '\'' => escaped.push_str("&apos;"),
             _ => escaped.push(c),
         }
     }
@@ -633,7 +639,7 @@ fn escape_xml(s: &str) -> String {
 // ── EPUB 3 XML generators ───────────────────────────────────────────
 
 fn make_opf(meta: &Metadata, uid: &str, chapter_ids: &[String], cover: Option<&CoverImage>) -> String {
-    let lang = if meta.language.is_empty() { "en" } else { &meta.language };
+    let lang = escape_xml(if meta.language.is_empty() { "en" } else { &meta.language });
     let title = escape_xml(&meta.title);
     let author = escape_xml(&meta.author);
 
@@ -694,11 +700,20 @@ fn make_opf(meta: &Metadata, uid: &str, chapter_ids: &[String], cover: Option<&C
 fn make_nav(meta: &Metadata, chapters: &[Chapter], chapter_ids: &[String]) -> String {
     let title = escape_xml(&meta.title);
     let mut ol = String::from("    <ol>\n");
+    let mut volume = "";
     for (i, ch) in chapters.iter().enumerate() {
+        if ch.volume != volume {
+            if !volume.is_empty() { ol.push_str("      </ol></li>\n"); }
+            volume = &ch.volume;
+            if !volume.is_empty() {
+                ol.push_str(&format!("      <li><span>{}</span><ol>\n", escape_xml(volume)));
+            }
+        }
         let id = &chapter_ids[i];
         let ch_title = escape_xml(&ch.title);
         ol.push_str(&format!("      <li><a href=\"{id}.xhtml\">{ch_title}</a></li>\n"));
     }
+    if !volume.is_empty() { ol.push_str("      </ol></li>\n"); }
     ol.push_str("    </ol>");
     format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
@@ -896,6 +911,7 @@ fn split_into_chapters(text: &str, language: &str) -> Vec<Chapter> {
                 chapters.push(Chapter {
                     title: current_title.clone(),
                     body: std::mem::take(&mut current_body),
+                    volume: String::new(),
                 });
             }
             current_title = trimmed.to_string();
@@ -908,7 +924,7 @@ fn split_into_chapters(text: &str, language: &str) -> Vec<Chapter> {
 
     if !first || !current_body.is_empty() {
         if current_title.is_empty() { current_title = default_title.into(); }
-        chapters.push(Chapter { title: current_title, body: current_body });
+        chapters.push(Chapter { title: current_title, body: current_body, volume: String::new() });
     }
     chapters
 }
@@ -995,6 +1011,31 @@ fn strip_html(html: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn edited_chapters_and_nested_volumes_are_used_without_reparsing_titles() {
+        let metadata = serde_json::json!({
+            "title": "Book & <notes>", "language": "en\"quoted",
+            "chapters": [
+                {"title": "An edited title", "body": "Text <literal> & words.\nSecond line.\n\nNext paragraph.", "volume": "Volume & One"},
+                {"title": "Another title", "body": "The rest.", "volume": "Volume & One"},
+                {"title": "Last title", "body": "End.", "volume": "Volume Two"}
+            ]
+        }).to_string();
+        let bytes = txt_to_epub("This source must not be reparsed", None, None, None, Some(metadata));
+        let mut zip = ZipArchive::new(io::Cursor::new(bytes)).unwrap();
+        let nav = read_zip_entry(&mut zip, "OEBPS/nav.xhtml").unwrap();
+        assert_eq!(nav.matches("<span>").count(), 2);
+        assert_eq!(nav.matches("<a href=").count(), 3);
+        assert!(nav.contains("Volume &amp; One"));
+        let chapter = read_zip_entry(&mut zip, "OEBPS/chapter1.xhtml").unwrap();
+        assert!(chapter.contains("<h1>An edited title</h1>"));
+        assert!(chapter.contains("Text &lt;literal&gt; &amp; words."));
+        assert_eq!(chapter.matches("<p>").count(), 2);
+        assert_eq!(chapter.matches("<br/>").count(), 1);
+        let opf = read_zip_entry(&mut zip, "OEBPS/content.opf").unwrap();
+        assert!(opf.contains("en&quot;quoted"));
+    }
 
     #[test]
     fn reader_preserves_text_chapters_metadata_and_literal_markup() {

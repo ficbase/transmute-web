@@ -2066,6 +2066,55 @@ html[lang=zh-CN] .steps-card h2 {
 }
 
 /* Keep the converter close to the first screen on small devices. */
+.book-health { margin:10px 0 14px; padding:10px 12px; border-radius:8px; background:var(--accent); color:var(--green); font-size:12px; line-height:1.7; }
+.book-workbench { width:min(1200px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); margin:auto; padding:0; border:1px solid var(--line); border-radius:18px; background:var(--white); color:var(--ink); box-shadow:0 25px 100px #16271940; }
+.book-workbench::backdrop { background:#17281f88; backdrop-filter:blur(5px); }
+.work-header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:22px 26px; border-bottom:1px solid var(--line); }
+.work-header h2 { margin:4px 0; font:normal 28px/1.25 var(--serif); }
+.work-header p { margin:6px 0 0; font-size:13px; }
+.work-header > button { width:36px; height:36px; flex-shrink:0; border:1px solid var(--line); border-radius:50%; background:var(--paper); font-size:22px; color:var(--ink); }
+.work-layout { display:grid; grid-template-columns:250px minmax(0,1fr); }
+.work-sidebar { padding:20px; border-right:1px solid var(--line); background:var(--paper); min-width:0; }
+.book-workbench label { display:block; font-size:12px; font-weight:600; margin-bottom:7px; }
+.book-workbench input,.book-workbench textarea { width:100%; padding:10px; border:1px solid #b8c4b1; border-radius:8px; background:var(--white); color:var(--ink); font-size:14px; }
+#workChapterList { max-height:55dvh; overflow:auto; margin-top:14px; display:grid; gap:6px; }
+#workChapterList button { text-align:left; padding:10px; border:1px solid transparent; border-radius:8px; background:transparent; color:var(--ink); overflow-wrap:anywhere; }
+#workChapterList button[aria-current=true] { background:var(--white); border-color:#8caa7a; }
+#workChapterList small { display:block; color:var(--muted); font-size:11px; margin-top:5px; }
+.work-editor { min-width:0; padding:22px 26px; }
+.work-fields { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.work-actions { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0; }
+.work-actions button,.work-footer > button { min-height:38px; border:1px solid #a3b697; padding:8px 12px; border-radius:8px; background:var(--paper); color:var(--green); font-size:12px; }
+.book-workbench button:disabled { opacity:.45; }
+.work-note { font-size:12px; line-height:1.8; color:var(--muted); }
+#workBody { min-height:180px; max-height:55dvh; resize:vertical; line-height:1.8; }
+.work-preview,.work-findings { margin-top:22px; border-top:1px solid var(--line); padding-top:18px; }
+.work-preview h3,.work-findings h3 { font-size:15px; margin:0 0 10px; }
+.work-preview h4 { font:normal 22px/1.4 var(--serif); margin:18px 0; }
+#workPreview { white-space:pre-wrap; overflow-wrap:anywhere; max-height:380px; overflow:auto; font:16px/1.9 var(--serif); }
+#workIssues { display:grid; gap:6px; }
+#workIssues button { text-align:left; border:1px solid #ddd3b2; border-radius:7px; padding:10px; background:#f9f5e8; color:#675120; font-size:12px; line-height:1.7; }
+.work-footer { position:sticky; bottom:0; display:flex; align-items:center; gap:10px; padding:14px 24px; border-top:1px solid var(--line); background:var(--white); }
+.work-footer > div { flex:1; min-width:0; }
+.work-footer p { margin:0; font-size:12px; line-height:1.7; }
+#workDone { background:var(--green); color:var(--white); }
+.export-report { padding:14px; border:1px solid #91ac7f; background:#edf3e8; border-radius:10px; margin:12px 0; color:var(--ink); }
+.export-report h3 { font-size:14px; margin:0 0 10px; }
+.export-report.failed { border-color:#bd7470; background:#fff0ed; }
+.export-report p { font-size:12px; line-height:1.7; margin:5px 0; }
+.export-report .work-report-note { color:var(--muted); margin-top:12px; }
+@media(max-width:760px) {
+ .card-heading-actions { flex-wrap:wrap; justify-content:flex-end; }
+ .book-workbench { width:calc(100vw - 16px); max-height:calc(100dvh - 16px); border-radius:12px; }
+ .work-header,.work-editor { padding:18px; }
+ .work-layout,.work-fields { grid-template-columns:minmax(0,1fr); }
+ .work-sidebar { border-right:0; border-bottom:1px solid var(--line); padding:16px; }
+ #workChapterList { max-height:150px; }
+ .work-footer { padding:12px; flex-wrap:wrap; }
+ .work-footer > div { flex-basis:100%; }
+ .work-footer > button { flex:1; }
+ .work-header h2 { font-size:24px; }
+}
 @media(max-width:680px) {
   .hero {
     grid-template-columns:minmax(0,1fr);
