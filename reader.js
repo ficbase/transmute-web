@@ -363,6 +363,7 @@ export function createReader({ getSource }) {
     applyPreferences();
     const token = ++generation;
     rendering = true;
+    viewport.setAttribute('aria-busy', 'true');
     article.replaceChildren(); showMessage('reader.loading');
     previous.disabled = true; next.disabled = true;
     try {
@@ -395,6 +396,7 @@ export function createReader({ getSource }) {
       if (token !== generation) return;
       rendering = false;
       book = null; file = null; fingerprint = '';
+      viewport.setAttribute('aria-busy', 'false');
       find('#readerBookTitle').textContent = t('reader.title'); find('#readerBookAuthor').textContent = '';
       tocList.replaceChildren();
       showMessage(String(error).includes('READER_SIZE') ? 'reader.size' : String(error).includes('READER_EMPTY') ? 'reader.empty' : 'reader.error', true);

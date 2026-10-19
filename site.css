@@ -2031,6 +2031,40 @@ html[lang=zh-CN] .steps-card h2 {
   }
 }
 
+.sample-actions { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 10px; }
+.sample-actions button { min-height:40px; padding:9px 14px; border:1px solid #78906b; border-radius:8px; background:var(--white); color:var(--green); font-weight:600; }
+.sample-actions button:hover:not(:disabled) { background:var(--accent); }
+.sample-actions button:disabled { opacity:.55; }
+.sample-replace-hint { font-size:12px; line-height:1.6; }
+.worked-example { margin:40px 0 56px; padding:32px; border:1px solid var(--line); border-radius:18px; background:var(--white); }
+.example-heading { max-width:740px; margin-bottom:24px; }
+.example-heading h2 { margin:8px 0 12px; font:normal clamp(24px,3vw,34px)/1.25 var(--serif); color:var(--ink); }
+.example-heading > p:last-child,.example-notes p { color:var(--muted); font-size:14px; line-height:1.85; }
+.example-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:20px; }
+.example-source,.example-result { min-width:0; padding:22px; border:1px solid var(--line); border-radius:12px; background:var(--paper); }
+.example-format { margin:0 0 16px; font-size:11px; font-weight:600; letter-spacing:1px; color:var(--green); }
+.example-source pre { margin:0 0 20px; white-space:pre-wrap; overflow-wrap:anywhere; font:12px/1.85 ui-monospace,SFMono-Regular,Consolas,monospace; color:var(--ink); }
+.example-book { display:flex; align-items:flex-start; gap:18px; margin:0 0 22px; }
+.example-book img { width:100px; height:150px; flex-shrink:0; box-shadow:0 5px 16px #253c3022; border-radius:2px 5px 5px 2px; }
+.example-book h3 { margin:0 0 6px; font:normal 22px/1.35 var(--serif); }
+.example-book p { margin:0; font-size:13px; line-height:1.7; }
+.example-book .example-contents-label { margin-top:16px; font-weight:600; }
+.example-book ol { margin:8px 0 0; padding-left:18px; font-size:12px; line-height:1.8; }
+.example-notes { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:24px; }
+.example-notes h3 { margin:0; font-size:15px; }
+.example-notes p { margin:8px 0 0; }
+.example-caption { font-size:12px; line-height:1.8; color:var(--muted); margin:20px 0; }
+.example-guides { display:flex; flex-wrap:wrap; gap:8px 22px; border-top:1px solid var(--line); padding-top:18px; }
+.example-guides a { font-size:13px; line-height:1.7; color:var(--green); text-decoration:underline; }
+@media(max-width:760px) {
+  .worked-example { padding:22px 18px; margin:28px 0 36px; }
+  .example-grid,.example-notes { grid-template-columns:minmax(0,1fr); }
+  .example-source,.example-result { padding:18px; }
+  .example-book { gap:14px; }
+  .example-book img { width:80px; height:120px; }
+  .example-book h3 { font-size:20px; }
+}
+
 /* Keep the converter close to the first screen on small devices. */
 @media(max-width:680px) {
   .hero {

@@ -26,6 +26,7 @@ const state = {
   encodingReady: Promise.resolve(),
   targetEncoding: 'utf-8',
   loadFailed: false,
+  sampleLoading: false,
   metadataReady: Promise.resolve(),
   statusKey: 'status.loading',
   statusClass: '',
@@ -63,6 +64,8 @@ const encodingMenu = $('#encodingMenu');
 const encodingOptions = [...document.querySelectorAll('[data-encoding-option]')];
 const encodingNames = { 'utf-8': 'UTF-8', gbk: 'GBK', gb18030: 'GB18030', 'utf-16le': 'UTF-16 LE', 'utf-16be': 'UTF-16 BE' };
 const downloadBtn = $('#downloadBtn');
+const sampleButtons = [...document.querySelectorAll('[data-demo-file]')];
+let sampleRequest = 0;
 const status = $('#status');
 const metaSection = $('#metaSection');
 const metaToggle = $('#metaToggle');
@@ -148,6 +151,8 @@ metaTitle.addEventListener('input', syncExportName);
 
 function updateUI() {
   const hasFile = !!state.file;
+  sampleButtons.forEach(button => { button.disabled = hasFile || state.busy || state.sampleLoading || state.loadFailed; });
+  document.querySelectorAll('[data-demo-replace-hint]').forEach(hint => { hint.hidden = !hasFile; });
   $('.converter-card').classList.toggle('has-file', hasFile);
   $('#converterActions').hidden = !hasFile;
   $('#readBtn').hidden = !hasFile;
@@ -198,6 +203,8 @@ function setFile(file) {
   const ext = getExt(file.name);
   const mode = ext === 'txt' ? 'txt2epub' : ext === 'epub' ? 'epub2txt' : null;
   if (!mode) { setStatus('status.unsupported', 'error'); return; }
+  sampleRequest++;
+  state.sampleLoading = false;
   reader.reset();
   state.file = file;
   state.mode = mode;
@@ -245,6 +252,38 @@ function openPicker(zone, input) {
   });
 }
 openPicker(dropzone, fileInput);
+// Sample requests cannot replace a file the visitor selects while loading.
+sampleButtons.forEach(button => button.addEventListener('click', async () => {
+  if (state.file || state.busy || state.sampleLoading || state.loadFailed) return;
+  const request = ++sampleRequest;
+  const language = getLanguage();
+  const extension = button.dataset.demoFile === 'epub' ? 'epub' : 'txt';
+  const name = (language === 'zh' ? 'sample' : 'sample-en') + '.' + extension;
+  state.sampleLoading = true;
+  updateUI();
+  setStatus('sample.loading');
+  try {
+    const response = await fetch(new URL('./examples/' + name, import.meta.url));
+    if (!response.ok) throw new Error('SAMPLE_UNAVAILABLE');
+    const bytes = await response.arrayBuffer();
+    if (request !== sampleRequest || state.file) return;
+    const file = new File([bytes], name, { type: extension === 'epub' ? 'application/epub+zip' : 'text/plain' });
+    setFile(file);
+    metaLang.value = language;
+    await state.metadataReady;
+    await state.encodingReady;
+    if (state.file !== file || state.loadFailed || state.encodingInvalid) return;
+    setStatus('sample.ready', 'success');
+    convertBtn.focus();
+  } catch {
+    if (request === sampleRequest) setStatus('sample.failed', 'error');
+  } finally {
+    if (request === sampleRequest) {
+      state.sampleLoading = false;
+      updateUI();
+    }
+  }
+}));
 dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
 dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
 dropzone.addEventListener('drop', (e) => {
